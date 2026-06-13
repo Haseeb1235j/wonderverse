@@ -1,0 +1,218 @@
+/* WonderVerse Components Stylesheet */
+
+/* 1. Cards */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-default); 
+  border-radius: var(--radius-lg);
+  padding: var(--space-6); 
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
+  position: relative;
+}
+
+.card:hover {
+  border-color: var(--border-hover);
+}
+
+.card-elevated {
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-card);
+}
+
+.card-glow:hover {
+  box-shadow: var(--shadow-glow);
+  border-color: var(--border-accent);
+}
+
+/* 3D tilt card styles */
+.tilt-card {
+  transform-style: preserve-3d;
+  transition: transform 0.1s ease-out, box-shadow var(--transition-fast), border-color var(--transition-fast);
+}
+
+.mouse-glow {
+  position: absolute;
+  width: 150px;
+  height: 150px;
+  background: radial-gradient(circle, rgba(167, 139, 250, 0.15) 0%, rgba(0,0,0,0) 70%);
+  border-radius: var(--radius-full);
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  z-index: 1;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.tilt-card:hover .mouse-glow {
+  opacity: 1;
+}
+
+/* 2. Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: 10px 20px;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  font-size: 0.9rem;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  text-decoration: none;
+  transition: all var(--transition-fast);
+}
+
+.btn-primary {
+  background: var(--accent-purple);
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background: #6d28d9;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.35);
+}
+
+.btn-secondary {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border-color: var(--border-default);
+}
+
+.btn-secondary:hover {
+  border-color: var(--border-hover);
+  background: var(--bg-hover);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.btn-ghost:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.btn-sm {
+  padding: 6px 14px;
+  font-size: 0.8rem;
+  border-radius: var(--radius-sm);
+}
+
+.btn-lg {
+  padding: 14px 28px;
+  font-size: 1rem;
+  border-radius: var(--radius-lg);
+}
+
+.btn-icon {
+  padding: 8px;
+  border-radius: var(--radius-md);
+}
+
+/* 3. Badges */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+/* Category badges */
+.badge-space    { background: rgba(59,130,246,0.15); color: #60a5fa; }
+.badge-bio      { background: rgba(16,185,129,0.15); color: #34d399; }
+.badge-history  { background: rgba(245,158,11,0.15); color: #fbbf24; }
+.badge-tech     { background: rgba(124,58,237,0.15); color: #a78bfa; }
+.badge-science  { background: rgba(6,182,212,0.15);  color: #22d3ee; }
+.badge-culture  { background: rgba(244,63,94,0.15);  color: #fb7185; }
+.badge-geo      { background: rgba(249,115,22,0.15); color: #fb923c; }
+.badge-chemistry{ background: rgba(6,182,212,0.12);  color: #06b6d4; }
+.badge-economics{ background: rgba(16,185,129,0.12); color: #10b981; }
+.badge-sports   { background: rgba(245,158,11,0.12); color: #fbbf24; }
+.badge-universal{ background: rgba(160,160,184,0.15); color: #a0a0b8; }
+.badge-default  { background: rgba(160,160,184,0.15); color: #a0a0b8; }
+
+/* Difficulty */
+.badge-easy   { background: rgba(16,185,129,0.15); color: #34d399; }
+.badge-medium { background: rgba(245,158,11,0.15); color: #fbbf24; }
+.badge-hard   { background: rgba(244,63,94,0.15);  color: #fb7185; }
+
+/* 4. Search Input */
+.search-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.search-input {
+  width: 100%;
+  padding: 14px 100px 14px 20px;
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xl);
+  font-size: 0.95rem;
+  font-family: var(--font-sans);
+  transition: all var(--transition-fast);
+  outline: none;
+}
+
+.search-input:focus {
+  border-color: var(--accent-purple);
+  box-shadow: 0 0 0 3px rgba(124,58,237,0.15);
+}
+
+.search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.search-btn {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--accent-purple);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-lg);
+  padding: 8px 18px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.85rem;
+  transition: background var(--transition-fast);
+}
+
+.search-btn:hover {
+  background: #6d28d9;
+}
+
+/* Badge unlocking toast */
+.badge-toast {
+  position: fixed;
+  bottom: 24px;
+  right: -320px;
+  width: 280px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--accent-amber);
+  border-left: 5px solid var(--accent-amber);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  box-shadow: var(--shadow-card);
+  z-index: 999;
+  transition: right 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.badge-toast.active {
+  right: 24px;
+}

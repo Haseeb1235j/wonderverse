@@ -1,0 +1,105 @@
+/* WonderVerse Modes Stylesheet (Story, Learn, Diagram, Quiz, Explore) */
+
+/* 1. Story Mode Comic Panels */
+.story-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  margin-bottom: var(--space-4);
+  position: relative;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.panel-number {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--accent-purple); 
+  background: rgba(124,58,237,0.15);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+}
+
+.panel-character {
+  font-size: 2rem;
+}
+
+.speech-bubble {
+  background: var(--bg-elevated);
+  border-left: 4px solid var(--accent-purple);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  line-height: 1.7;
+}
+
+.speech-bubble.narrator {
+  border-color: var(--accent-cyan);
+}
+
+.fact-card {
+  background: rgba(59,130,246,0.06);
+  border: 1px solid rgba(59,130,246,0.15);
+  border-left: 4px solid var(--accent-blue);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  line-height: 1.7;
+}
+
+.highlight-card {
+  background: rgba(245,158,11,0.06);
+  border: 1px solid rgba(245,158,11,0.15);
+  border-left: 4px solid var(--accent-amber);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  line-height: 1.7;
+}
+
+.panel-connector {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 1.25rem;
+  margin-top: var(--space-3);
+  margin-bottom: var(--space-6);
+}
+
+/* 2. Diagram Mode SVG adjustments */
+#svg-viewport svg {
+  width: 100%;
+  height: auto;
+  border-radius: var(--radius-md);
+  display: block;
+}
+
+/* Active vector nodes hover animation */
+.diagram-node {
+  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), filter 0.2s ease;
+}
+
+.diagram-node:hover {
+  transform: scale(1.05);
+  filter: brightness(1.2) drop-shadow(0 0 10px rgba(124, 58, 237, 0.45));
+}
+
+/* 3. Quiz Mode Highlights */
+.quiz-option-btn {
+  text-align: left;
+  justify-content: flex-start;
+  transition: border-color var(--transition-fast), background-color var(--transition-fast), transform var(--transition-fast);
+}
+
+.quiz-option-btn:hover {
+  border-color: var(--border-hover);
+  background-color: var(--bg-hover);
+}
+
+/* 4. Trending Grid & Badges Layout */
+.trending-grid, .badges-grid {
+  margin-top: var(--space-2);
+}
