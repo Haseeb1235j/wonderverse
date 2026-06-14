@@ -193,7 +193,7 @@ export const WikipediaService = {
   async getVideos(title, category = "") {
     const queryTerm = title.trim();
     const commonsApi = 'https://commons.wikimedia.org/w/api.php';
-    let url = `${commonsApi}?action=query&generator=search&gsrsearch=${encodeURIComponent(queryTerm)}+filetype:video&gsrnamespace=6&gsrlimit=20&prop=imageinfo&iiprop=url|mime&format=json&origin=*`;
+    let url = `${commonsApi}?action=query&generator=search&gsrsearch=${encodeURIComponent(queryTerm)}+filetype:video&gsrnamespace=6&gsrlimit=20&prop=imageinfo&iiprop=url|mime|thumburl&iiurlwidth=400&format=json&origin=*`;
     
     let res = await fetchWithTimeout(url);
     let data = res ? await res.json() : null;
@@ -206,14 +206,15 @@ export const WikipediaService = {
         videoFiles.push({
           title: page.title.replace('File:', '').replace(/_/g, ' '),
           url: info.url,
-          mime: info.mime || (info.url.endsWith('.webm') ? 'video/webm' : info.url.endsWith('.ogv') ? 'video/ogg' : 'video/mp4')
+          mime: info.mime || (info.url.endsWith('.webm') ? 'video/webm' : info.url.endsWith('.ogv') ? 'video/ogg' : 'video/mp4'),
+          thumbnail: info.thumburl || null
         });
       }
     }
     
     // Fallback 1: Try searching category name
     if (videoFiles.length === 0 && category) {
-      const fallbackUrl = `${commonsApi}?action=query&generator=search&gsrsearch=${encodeURIComponent(category)}+filetype:video&gsrnamespace=6&gsrlimit=10&prop=imageinfo&iiprop=url|mime&format=json&origin=*`;
+      const fallbackUrl = `${commonsApi}?action=query&generator=search&gsrsearch=${encodeURIComponent(category)}+filetype:video&gsrnamespace=6&gsrlimit=10&prop=imageinfo&iiprop=url|mime|thumburl&iiurlwidth=400&format=json&origin=*`;
       const fallbackRes = await fetchWithTimeout(fallbackUrl);
       const fallbackData = fallbackRes ? await fallbackRes.json() : null;
       const fallbackPages = fallbackData?.query?.pages || {};
@@ -224,7 +225,8 @@ export const WikipediaService = {
           videoFiles.push({
             title: page.title.replace('File:', '').replace(/_/g, ' '),
             url: info.url,
-            mime: info.mime || (info.url.endsWith('.webm') ? 'video/webm' : info.url.endsWith('.ogv') ? 'video/ogg' : 'video/mp4')
+            mime: info.mime || (info.url.endsWith('.webm') ? 'video/webm' : info.url.endsWith('.ogv') ? 'video/ogg' : 'video/mp4'),
+            thumbnail: info.thumburl || null
           });
         }
       }
@@ -232,7 +234,7 @@ export const WikipediaService = {
 
     // Fallback 2: Try searching global keyword "Science" so they always get at least one video!
     if (videoFiles.length === 0) {
-      const globalUrl = `${commonsApi}?action=query&generator=search&gsrsearch=Science+filetype:video&gsrnamespace=6&gsrlimit=5&prop=imageinfo&iiprop=url|mime&format=json&origin=*`;
+      const globalUrl = `${commonsApi}?action=query&generator=search&gsrsearch=Science+filetype:video&gsrnamespace=6&gsrlimit=5&prop=imageinfo&iiprop=url|mime|thumburl&iiurlwidth=400&format=json&origin=*`;
       const globalRes = await fetchWithTimeout(globalUrl);
       const globalData = globalRes ? await globalRes.json() : null;
       const globalPages = globalData?.query?.pages || {};
@@ -243,7 +245,8 @@ export const WikipediaService = {
           videoFiles.push({
             title: page.title.replace('File:', '').replace(/_/g, ' '),
             url: info.url,
-            mime: info.mime || (info.url.endsWith('.webm') ? 'video/webm' : info.url.endsWith('.ogv') ? 'video/ogg' : 'video/mp4')
+            mime: info.mime || (info.url.endsWith('.webm') ? 'video/webm' : info.url.endsWith('.ogv') ? 'video/ogg' : 'video/mp4'),
+            thumbnail: info.thumburl || null
           });
         }
       }

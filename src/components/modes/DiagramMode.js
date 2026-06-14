@@ -56,54 +56,71 @@ export const DiagramMode = {
 
     // Parse extract to generate descriptions for nodes
     const sentences = textParser.splitSentences(extract);
-    const sentence1 = sentences[0] || `${topicTitle} is a fascinating topic to explore.`;
-    const sentence2 = sentences[1] || `Understanding ${topicTitle} opens new perspectives.`;
-    const sentence3 = sentences[2] || `${topicTitle} has wide real-world applications.`;
+    const sentence1 = sentences[0] || `${topicTitle} is a key topic of investigation.`;
+    const sentence2 = sentences[1] || `Further research on ${topicTitle} helps explain its mechanisms.`;
+    const sentence3 = sentences[2] || `Its applications are observed across various domains.`;
+    const sentence4 = sentences[3] || `A deeper breakdown reveals how its core components interact.`;
     const topKeywords = textParser.extractKeywords(extract, 5);
 
     const descriptions = {
-      'center': `${topicTitle} represents the primary coordinate under exploration.`,
-      'central-body': `${topicTitle} represents the primary celestial coordinate under exploration.`,
-      'What it is': sentence1,
-      'Why it matters': `${topicTitle} plays an important role in its field.`,
-      'Key facts': `Key terms and facts: ${topKeywords.slice(0, 3).join(', ') || 'Complex and multifaceted'}.`,
-      'Real examples': sentence2,
-      'Related concepts': `Related concepts: ${topKeywords.slice(3, 5).join(', ') || 'Various related fields'}.`,
-      'Explore further': sentence3,
+      'center': `${topicTitle} is the central hub of this concept map. It represents the primary theme and coordinates all outer topics: ${topKeywords.join(', ')}.`,
+      'central-body': `${topicTitle} is the primary gravity anchor of this space model. Its structure governs the surrounding orbital paths and satellites.`,
+      
+      // Concept Map (Universal Fallback)
+      'What it is': `Definition and Core Concept: ${sentence1} It establishes the primary definition and parameters of the topic.`,
+      'Why it matters': `Significance & Relevance: ${topicTitle} plays an important role because it connects multiple theoretical and practical concepts. ${sentence2}`,
+      'Key facts': `Key observations, metrics, and parameters: ${topKeywords.slice(0, 3).join(', ') || 'Complex and multifaceted'}. These are key identifiers used by experts in the field.`,
+      'Real examples': `Real-World Application: We see this in practice where: ${sentence3} It forms the foundation of real world applications.`,
+      'Related concepts': `Related Concepts & Domains: Major connected studies include ${topKeywords.slice(3, 5).join(', ') || 'Various related fields'}. These fields share structural or functional traits.`,
+      'Explore further': `Future Scope & Advanced Exploration: ${sentence4} Researchers are investigating these areas to expand our knowledge base.`,
       
       // Space labels
-      'Core Star / Planet': `Core Star / Planet: ${topicTitle}`,
-      'Atmosphere / Ring': sentences[0] || 'Atmospheric telemetry elements',
-      'Satellite Orbit': sentences[1] || 'Satellite orbital gravity locks',
-      'Cosmic Influence': sentences[2] || 'Deep field interstellar magnetic force',
-      'Legacy / Records': sentences[3] || 'Observational record history',
+      'Core Star / Planet': `Core celestial body representing ${topicTitle}. Its mass, density, and magnetic properties dictate coordinates for all surrounding paths.`,
+      'Atmosphere / Ring': `Atmosphere and rings surrounding the core: ${sentence1}`,
+      'Satellite Orbit': `Outer satellite orbits containing lunar or synthetic observers: ${sentence2}`,
+      'Cosmic Influence': `Deep space magnetic vectors and radiation belts: ${sentence3}`,
+      'Legacy / Records': `Observational telemetry and historical catalog entries: ${sentence4}`,
 
       // Biology labels
-      'System Head': `Core organism system representing: ${topicTitle}`,
-      'Structural Core': sentences[0] || 'Core structural component.',
-      'Motor Functions': sentences[1] || 'Nervous system signals.',
-      'Energy Conversion': sentences[2] || 'Metabolic synthesis actions.',
-      'Regulation loops': sentences[3] || 'Homeostatic balance control.',
+      'System Head': `Primary system controller representing ${topicTitle}. It processes inputs and regulates other nodes.`,
+      'Structural Core': `Core structural anatomy: ${sentence1}`,
+      'Motor Functions': `Neural signals and physical movement control: ${sentence2}`,
+      'Energy Conversion': `Metabolism and energy synthesis: ${sentence3}`,
+      'Regulation loops': `Homeostasis regulation: ${sentence4}`,
 
       // History labels
-      'Origin / Genesis': sentences[0] || 'Original inception period.',
-      'Growth / Expansion': sentences[1] || 'Expansion and integration.',
-      'Zenith / Peak': sentences[2] || 'Historical zenith and peak power.',
-      'Legacy / Impact': sentences[3] || 'Lasting impact on systems today.',
+      'Origin / Genesis': `Initial inception phase of ${topicTitle}: ${sentence1}`,
+      'Growth / Expansion': `Second phase, detailing expansion and integration: ${sentence2}`,
+      'Zenith / Peak': `Peak level of development and peak system influence: ${sentence3}`,
+      'Legacy / Impact': `Final legacy phase, detailing the lasting historical impact: ${sentence4}`,
 
       // Technology labels
-      'Data Source': `Core system input representing: ${topicTitle}`,
-      'Processing core': sentences[0] || 'Main algorithm core.',
-      'Security firewall': sentences[1] || 'Access gatekeeper.',
-      'Telemetry logs': sentences[2] || 'Output system monitors.',
-      'User Client': sentences[3] || 'Client UI layout.',
+      'Data Source': `System input hub for ${topicTitle}. Receives incoming raw data packages.`,
+      'Processing core': `Main processing block: ${sentence1}`,
+      'Security firewall': `Security gateway: ${sentence2}`,
+      'Telemetry logs': `Logging console that monitors outputs: ${sentence3}`,
+      'User Client': `Client UI layout: ${sentence4}`,
 
       // Earth labels
-      'Step 1: Evaporation': sentences[0] || 'Evaporation from surface sources.',
-      'Step 2: Condensation': sentences[1] || 'Gaseous moisture turns cloud.',
-      'Step 3: Precipitation': sentences[2] || 'Rain/snow delivers water.',
-      'Step 4: Collection': sentences[3] || 'Runoff merges in collection reservoirs.',
-      'Step 5: Regeneration': `Regeneration loop of: ${topicTitle}`
+      'Step 1: Evaporation': `Phase 1 (Evaporation): ${sentence1}`,
+      'Step 2: Condensation': `Phase 2 (Condensation): ${sentence2}`,
+      'Step 3: Precipitation': `Phase 3 (Precipitation): ${sentence3}`,
+      'Step 4: Collection': `Phase 4 (Collection): ${sentence4}`,
+      'Step 5: Regeneration': `Phase 5 (Regeneration): Regeneration cycle restoring the core state of ${topicTitle}.`,
+
+      // Physics labels
+      'Mass Object': `Mass Object: The central body representing the core mass of ${topicTitle}. Under acceleration due to the balanced sum of external vectors.`,
+      'FN: Normal Force': `Normal Force (FN): Support vector perpendicular to the surface, counteracting gravity: ${sentence1}`,
+      'FG: Gravitational Pull': `Gravitational Force (FG): Force pulling the mass down toward the planet center: ${sentence2}`,
+      'FA: Applied Force': `Applied Force (FA): Direct energy application pushing the mass object forward: ${sentence3}`,
+      'FF: Friction Resistance': `Friction Resistance (FF): Opposing force resisting movement along the surface: ${sentence4}`,
+
+      // Economics labels
+      'Producers': `Producers: Businesses and agents that supply goods and services. They consume capital to run operations for ${topicTitle}: ${sentence1}`,
+      'Consumers': `Consumers: Individuals and markets that purchase goods and services. They supply labor and financial capital, driving demand: ${sentence2}`,
+      'Goods flow': `Goods & Services Flow: Shows the transfer of physical products, digital items, or expert services from Producers to Consumers: ${sentence3}`,
+      'Capital flow': `Financial Capital Flow: Shows the payment and money transactions returned from Consumers to Producers, funding further creation: ${sentence4}`,
+      'Market Telemetry': `General Flow Telemetry for ${topicTitle}: Transactional loops coordinate capital and product distributions between producers and consumers in the market.`
     };
 
     const explainEl = document.getElementById("diagram-explain");
@@ -116,12 +133,21 @@ export const DiagramMode = {
         
         if (explainEl) {
           explainEl.innerHTML = `
-            <h4 style="color: var(--accent-cyan); margin-top: 0; margin-bottom: var(--space-2); font-size: 1.05rem;">
-              🔍 ${nodeId}
-            </h4>
-            <p style="color: var(--text-primary); margin: 0; line-height: 1.4; font-size: 0.875rem;">
-              ${desc}
-            </p>
+            <div style="display:flex; flex-direction:column; gap: var(--space-3); animation: fadeIn 0.25s forwards;">
+              <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-default); padding-bottom:8px;">
+                <h4 style="color: var(--accent-cyan); margin: 0; font-size: 1.05rem;">
+                  🔍 ${nodeId}
+                </h4>
+                <span style="font-size:0.65rem; font-family:var(--font-mono); color:var(--accent-emerald); background:rgba(16,185,129,0.15); padding:2px 6px; border-radius:4px; font-weight:700;">NODE NOMINAL</span>
+              </div>
+              <p style="color: var(--text-primary); margin: 0; line-height: 1.5; font-size: 0.875rem;">
+                ${desc}
+              </p>
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; font-family:var(--font-mono); font-size:0.68rem; color:var(--text-muted); border-top:1px solid var(--border-default); padding-top:8px; margin-top:4px;">
+                <div>LOAD INDEX: <span style="color:var(--accent-purple)">98.4%</span></div>
+                <div>CORRELATION: <span style="color:var(--accent-cyan)">ACTIVE</span></div>
+              </div>
+            </div>
           `;
         }
       });

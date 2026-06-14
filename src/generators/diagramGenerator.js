@@ -296,28 +296,38 @@ function generateForceDiagram(title, extract) {
     <text x="400" y="246" text-anchor="middle" fill="#ffffff" font-size="14" font-weight="800">${title}</text>
     
     <!-- Normal Force (Up) -->
-    <line x1="400" y1="180" x2="400" y2="70" stroke="#06b6d4" stroke-width="3.5"/>
-    <polygon points="400,60 393,75 407,75" fill="#06b6d4"/>
-    <text x="420" y="80" fill="#06b6d4" font-size="10" font-weight="700">FN: Normal Force</text>
+    <g class="diagram-node" data-node="FN: Normal Force" style="cursor:pointer;">
+      <line x1="400" y1="180" x2="400" y2="70" stroke="#06b6d4" stroke-width="3.5"/>
+      <polygon points="400,60 393,75 407,75" fill="#06b6d4"/>
+      <text x="420" y="80" fill="#06b6d4" font-size="10" font-weight="700">FN: Normal Force</text>
+    </g>
     
     <!-- Gravity Force (Down) -->
-    <line x1="400" y1="300" x2="400" y2="420" stroke="#f43f5e" stroke-width="3.5"/>
-    <polygon points="400,430 393,415 407,415" fill="#f43f5e"/>
-    <text x="420" y="420" fill="#f43f5e" font-size="10" font-weight="700">FG: Gravitational Pull</text>
+    <g class="diagram-node" data-node="FG: Gravitational Pull" style="cursor:pointer;">
+      <line x1="400" y1="300" x2="400" y2="420" stroke="#f43f5e" stroke-width="3.5"/>
+      <polygon points="400,430 393,415 407,415" fill="#f43f5e"/>
+      <text x="420" y="420" fill="#f43f5e" font-size="10" font-weight="700">FG: Gravitational Pull</text>
+    </g>
     
     <!-- Applied Force (Right) -->
-    <line x1="500" y1="240" x2="630" y2="240" stroke="#10b981" stroke-width="3.5"/>
-    <polygon points="640,240 625,233 625,247" fill="#10b981"/>
-    <text x="645" y="244" fill="#10b981" font-size="10" font-weight="700">FA: Applied Force</text>
+    <g class="diagram-node" data-node="FA: Applied Force" style="cursor:pointer;">
+      <line x1="500" y1="240" x2="630" y2="240" stroke="#10b981" stroke-width="3.5"/>
+      <polygon points="640,240 625,233 625,247" fill="#10b981"/>
+      <text x="645" y="244" fill="#10b981" font-size="10" font-weight="700">FA: Applied Force</text>
+    </g>
     
     <!-- Friction Force (Left) -->
-    <line x1="300" y1="240" x2="170" y2="240" stroke="#f59e0b" stroke-width="3.5"/>
-    <polygon points="160,240 175,233 175,247" fill="#f59e0b"/>
-    <text x="90" y="244" fill="#f59e0b" font-size="10" font-weight="700">FF: Friction Resistance</text>
+    <g class="diagram-node" data-node="FF: Friction Resistance" style="cursor:pointer;">
+      <line x1="300" y1="240" x2="170" y2="240" stroke="#f59e0b" stroke-width="3.5"/>
+      <polygon points="160,240 175,233 175,247" fill="#f59e0b"/>
+      <text x="90" y="244" fill="#f59e0b" font-size="10" font-weight="700">FF: Friction Resistance</text>
+    </g>
     
-    <foreignObject x="310" y="315" width="180" height="50">
-      <div xmlns="http://www.w3.org/1999/xhtml" style="font-size:8px;color:#a78bfa;text-align:center;line-height:1.2;">${sentences[0]?.slice(0, 75) || 'Forces act on the central body in opposing directions, creating net acceleration.'}</div>
-    </foreignObject>
+    <g class="diagram-node" data-node="Mass Object" style="cursor:pointer;">
+      <foreignObject x="310" y="315" width="180" height="50">
+        <div xmlns="http://www.w3.org/1999/xhtml" style="font-size:8px;color:#a78bfa;text-align:center;line-height:1.2;pointer-events:none;">${sentences[0]?.slice(0, 75) || 'Forces act on the central body in opposing directions, creating net acceleration.'}</div>
+      </foreignObject>
+    </g>
   </svg>`;
   return svg;
 }
@@ -341,21 +351,27 @@ function generateFlowDiagram(title, extract) {
     
     <!-- Flows -->
     <!-- Goods flow (producer to consumer) -->
-    <path d="M 240 230 C 370 160 430 160 560 230" fill="none" stroke="#10b981" stroke-width="3"/>
-    <polygon points="560,230 543,220 551,235" fill="#10b981"/>
-    <text x="400" y="170" text-anchor="middle" fill="#10b981" font-size="9" font-weight="700">GOODS & SERVICES FLOW</text>
+    <g class="diagram-node" data-node="Goods flow" style="cursor:pointer;">
+      <path d="M 240 230 C 370 160 430 160 560 230" fill="none" stroke="#10b981" stroke-width="3"/>
+      <polygon points="560,230 543,220 551,235" fill="#10b981"/>
+      <text x="400" y="170" text-anchor="middle" fill="#10b981" font-size="9" font-weight="700">GOODS & SERVICES FLOW</text>
+    </g>
     
     <!-- Capital flow (consumer to producer) -->
-    <path d="M 560 270 C 430 340 370 340 240 270" fill="none" stroke="#3b82f6" stroke-width="3"/>
-    <polygon points="240,270 257,280 249,265" fill="#3b82f6"/>
-    <text x="400" y="325" text-anchor="middle" fill="#3b82f6" font-size="9" font-weight="700">FINANCIAL CAPITAL FLOW</text>
+    <g class="diagram-node" data-node="Capital flow" style="cursor:pointer;">
+      <path d="M 560 270 C 430 340 370 340 240 270" fill="none" stroke="#3b82f6" stroke-width="3"/>
+      <polygon points="240,270 257,280 249,265" fill="#3b82f6"/>
+      <text x="400" y="325" text-anchor="middle" fill="#3b82f6" font-size="9" font-weight="700">FINANCIAL CAPITAL FLOW</text>
+    </g>
     
-    <foreignObject x="250" y="215" width="300" height="80">
-      <div xmlns="http://www.w3.org/1999/xhtml" style="font-size:8px;color:#9ca3af;text-align:center;line-height:1.4;">
-        <strong>Market Telemetry: ${title}</strong><br/>
-        ${sentences[0]?.slice(0, 120) || 'Transactional loops coordinate capital and product distributions between agents.'}
-      </div>
-    </foreignObject>
+    <g class="diagram-node" data-node="Market Telemetry" style="cursor:pointer;">
+      <foreignObject x="250" y="215" width="300" height="80">
+        <div xmlns="http://www.w3.org/1999/xhtml" style="font-size:8px;color:#9ca3af;text-align:center;line-height:1.4;pointer-events:none;">
+          <strong>Market Telemetry: ${title}</strong><br/>
+          ${sentences[0]?.slice(0, 120) || 'Transactional loops coordinate capital and product distributions between agents.'}
+        </div>
+      </foreignObject>
+    </g>
   </svg>`;
   return svg;
 }

@@ -368,12 +368,16 @@ function openDeepDiveModal(title, category, sections, mediaData, videos, default
   // Render Videos Grid HTML
   let videosListHtml = "";
   videos.forEach(vid => {
+    const cleanTitle = vid.title.replace(/\.[a-zA-Z0-9]+$/, '').replace(/"/g, '&quot;');
+    const thumbStyle = vid.thumbnail ? `background-image: url('${vid.thumbnail}'); background-size: cover; background-position: center;` : '';
     videosListHtml += `
-      <div class="video-footage-card" data-src="${vid.url}" data-mime="${vid.mime}" data-title="${vid.title.replace(/"/g, '&quot;')}">
-        <div class="video-card-thumbnail">
-          <span class="play-icon">▶</span>
+      <div class="video-footage-card" data-src="${vid.url}" data-mime="${vid.mime}" data-title="${cleanTitle}" title="${cleanTitle}">
+        <div class="video-card-thumbnail" style="${thumbStyle}">
+          <div style="position: absolute; inset: 0; background: rgba(10,10,15,0.45); display: flex; align-items: center; justify-content: center; z-index: 1;">
+            <span class="play-icon" style="text-shadow: 0 0 10px rgba(0,0,0,0.8);">▶</span>
+          </div>
         </div>
-        <div class="video-card-title">${vid.title.replace(/\.[a-zA-Z0-9]+$/, '')}</div>
+        <div class="video-card-title">${cleanTitle}</div>
       </div>
     `;
   });
