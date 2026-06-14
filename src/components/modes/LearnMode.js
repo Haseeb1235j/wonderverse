@@ -52,9 +52,11 @@ function drawHUD(ctx, width, height, tick, title, subText) {
   ctx.fillText(`BUFF: NOMINAL`, width - 120, 42);
 }
 
-function drawSpace(ctx, width, height, tick, title) {
-  ctx.fillStyle = '#030307';
-  ctx.fillRect(0, 0, width, height);
+function drawSpace(ctx, width, height, tick, title, skipBackground = false) {
+  if (!skipBackground) {
+    ctx.fillStyle = '#030307';
+    ctx.fillRect(0, 0, width, height);
+  }
   drawHUD(ctx, width, height, tick, title, 'Cosmic Telemetry');
 
   const cx = width / 2;
@@ -103,9 +105,11 @@ function drawSpace(ctx, width, height, tick, title) {
   ctx.fill();
 }
 
-function drawBiology(ctx, width, height, tick, title) {
-  ctx.fillStyle = '#030307';
-  ctx.fillRect(0, 0, width, height);
+function drawBiology(ctx, width, height, tick, title, skipBackground = false) {
+  if (!skipBackground) {
+    ctx.fillStyle = '#030307';
+    ctx.fillRect(0, 0, width, height);
+  }
   drawHUD(ctx, width, height, tick, title, 'Genetic Synthesis');
 
   const cx = width / 2;
@@ -164,9 +168,11 @@ function drawBiology(ctx, width, height, tick, title) {
   ctx.stroke();
 }
 
-function drawTechnology(ctx, width, height, tick, title) {
-  ctx.fillStyle = 'rgba(3, 3, 7, 0.3)'; // Trail fade for data flow
-  ctx.fillRect(0, 0, width, height);
+function drawTechnology(ctx, width, height, tick, title, skipBackground = false) {
+  if (!skipBackground) {
+    ctx.fillStyle = 'rgba(3, 3, 7, 0.3)'; // Trail fade for data flow
+    ctx.fillRect(0, 0, width, height);
+  }
   drawHUD(ctx, width, height, tick, title, 'Neural Matrix Network');
 
   const cx = width / 2;
@@ -222,9 +228,11 @@ function drawTechnology(ctx, width, height, tick, title) {
   ctx.textAlign = 'left'; // Reset
 }
 
-function drawPhysics(ctx, width, height, tick, title) {
-  ctx.fillStyle = '#030307';
-  ctx.fillRect(0, 0, width, height);
+function drawPhysics(ctx, width, height, tick, title, skipBackground = false) {
+  if (!skipBackground) {
+    ctx.fillStyle = '#030307';
+    ctx.fillRect(0, 0, width, height);
+  }
   drawHUD(ctx, width, height, tick, title, 'Quantum Mechanics');
 
   const cx = width / 2;
@@ -271,9 +279,11 @@ function drawPhysics(ctx, width, height, tick, title) {
   });
 }
 
-function drawFallback(ctx, width, height, tick, title) {
-  ctx.fillStyle = '#030307';
-  ctx.fillRect(0, 0, width, height);
+function drawFallback(ctx, width, height, tick, title, skipBackground = false) {
+  if (!skipBackground) {
+    ctx.fillStyle = '#030307';
+    ctx.fillRect(0, 0, width, height);
+  }
   drawHUD(ctx, width, height, tick, title, 'Universal Schematic');
 
   const cx = width / 2;
@@ -545,6 +555,25 @@ function openDeepDiveModal(title, category, sections, mediaData, videos, default
       synthHeaderBtn.disabled = true;
     }
 
+    // Load actual documentary photos of the topic in the background
+    const imageList = images || [];
+    const loadedImages = [];
+    imageList.slice(0, 6).forEach(img => {
+      const imgEl = new Image();
+      imgEl.crossOrigin = "anonymous";
+      imgEl.src = img.src;
+      imgEl.onload = () => loadedImages.push(imgEl);
+    });
+
+    // Compile narrative sentences for subtitles/captions
+    const narrativeSentences = [
+      `WonderVerse AI telemetry synthesis for ${title}.`,
+      `Definition summary: ${learnContent?.overview || ""}`,
+      `Why this topic is important: ${learnContent?.whyItMatters || ""}`,
+      `Operational mechanics: ${learnContent?.howItWorks || ""}`,
+      `Real life application example: ${learnContent?.realExamples || ""}`
+    ].map(s => s.replace(/Imagine explaining.*to a 10-year-old:/gi, '').trim()).filter(Boolean);
+
     // Populate dynamic console logs using REAL ARTICLE FACTS
     const consoleEl = overlay.querySelector("#synthesis-console-logs");
     if (consoleEl) {
@@ -591,17 +620,85 @@ function openDeepDiveModal(title, category, sections, mediaData, videos, default
       function loop() {
         if (!synthActive) return;
         
+        // 1. Draw base background (black)
+        ctx.fillStyle = '#030307';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // 2. Draw documentary slides (if loaded)
+        if (loadedImages.length > 0) {
+          const imgDuration = 360; // 6 seconds per image at 60fps
+          const imgIdx = Math.floor((tick / imgDuration) % loadedImages.length);
+          const activeImg = loadedImages[imgIdx];
+          if (activeImg && activeImg.complete) {
+            // Draw image with Ken Burns panning/zooming effect
+            const scale = 1.05 + Math.sin(tick * 0.003) * 0.05;
+            const w = canvas.width * scale;
+            const h = canvas.height * scale;
+            const x = (canvas.width - w) / 2 + Math.cos(tick * 0.002) * 5;
+            const y = (canvas.height - h) / 2 + Math.sin(tick * 0.002) * 5;
+            ctx.drawImage(activeImg, x, y, w, h);
+            
+            // Draw a semi-transparent overlay vignette
+            ctx.fillStyle = 'rgba(5, 5, 10, 0.45)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+          }
+        }
+        
+        // 3. Draw Category Procedural Animation (Space, Biology, Tech, Physics, Fallback) as a glowing overlay
         const cat = category ? category.toLowerCase() : "";
+        ctx.save();
+        if (loadedImages.length > 0) {
+          ctx.globalAlpha = 0.5; // Blend animated shapes over background images
+        }
+        
+        // Draw the visual elements using skipBackground = true
         if (cat === 'space') {
-          drawSpace(ctx, canvas.width, canvas.height, tick, title);
+          drawSpace(ctx, canvas.width, canvas.height, tick, title, true);
         } else if (cat === 'biology' || cat === 'bio') {
-          drawBiology(ctx, canvas.width, canvas.height, tick, title);
+          drawBiology(ctx, canvas.width, canvas.height, tick, title, true);
         } else if (cat === 'technology' || cat === 'tech') {
-          drawTechnology(ctx, canvas.width, canvas.height, tick, title);
+          drawTechnology(ctx, canvas.width, canvas.height, tick, title, true);
         } else if (cat === 'physics' || cat === 'science' || cat === 'chemistry') {
-          drawPhysics(ctx, canvas.width, canvas.height, tick, title);
+          drawPhysics(ctx, canvas.width, canvas.height, tick, title, true);
         } else {
-          drawFallback(ctx, canvas.width, canvas.height, tick, title);
+          drawFallback(ctx, canvas.width, canvas.height, tick, title, true);
+        }
+        ctx.restore();
+        
+        // 4. Force HUD to draw on top of everything if skipBackground was used
+        if (loadedImages.length > 0) {
+          drawHUD(ctx, canvas.width, canvas.height, tick, title, category || 'Universal');
+        }
+        
+        // 5. Draw captions / subtitles at the bottom
+        if (narrativeSentences.length > 0) {
+          const subDuration = 360; // 6 seconds per subtitle
+          const subIdx = Math.floor(tick / subDuration) % narrativeSentences.length;
+          const subtitle = narrativeSentences[subIdx];
+          
+          // Draw Subtitle Container Box
+          ctx.fillStyle = 'rgba(5, 5, 10, 0.85)';
+          ctx.strokeStyle = 'rgba(6, 182, 212, 0.35)';
+          ctx.lineWidth = 1;
+          ctx.fillRect(20, canvas.height - 75, canvas.width - 40, 50);
+          ctx.strokeRect(20, canvas.height - 75, canvas.width - 40, 50);
+          
+          // Subtitle text lines wrapping
+          ctx.font = '500 11px var(--font-sans, sans-serif)';
+          ctx.fillStyle = '#ffffff';
+          ctx.textAlign = 'center';
+          
+          const maxLineChars = 75;
+          if (subtitle.length > maxLineChars) {
+            const splitIdx = subtitle.indexOf(' ', maxLineChars - 10);
+            const line1 = subtitle.slice(0, splitIdx);
+            const line2 = subtitle.slice(splitIdx).trim();
+            ctx.fillText(line1, canvas.width / 2, canvas.height - 57);
+            ctx.fillText(line2, canvas.width / 2, canvas.height - 40);
+          } else {
+            ctx.fillText(subtitle, canvas.width / 2, canvas.height - 48);
+          }
+          ctx.textAlign = 'left'; // reset
         }
         
         const coordEl = overlay.querySelector("#matrix-coord");
