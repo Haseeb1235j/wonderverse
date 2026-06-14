@@ -2,6 +2,26 @@
 const WIKI_API = 'https://en.wikipedia.org/w/api.php';
 const WIKI_REST = 'https://en.wikipedia.org/api/rest_v1';
 
+function normalizeQuery(query) {
+  if (!query) return query;
+  const q = query.trim().toLowerCase();
+  const shorthand = {
+    'ai': 'Artificial intelligence',
+    'ml': 'Machine learning',
+    'vr': 'Virtual reality',
+    'ar': 'Augmented reality',
+    'mr': 'Mixed reality',
+    'ui': 'User interface',
+    'ux': 'User experience',
+    'pc': 'Personal computer',
+    'cpu': 'Central processing unit',
+    'gpu': 'Graphics processing unit',
+    'ram': 'Random-access memory',
+    'dna': 'Deoxyribonucleic acid'
+  };
+  return shorthand[q] || query;
+}
+
 async function fetchWithTimeout(url, options = {}, timeoutMs = 8000) {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeoutMs);
@@ -22,7 +42,8 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 8000) {
 export const WikipediaService = {
   // Rich Search: Returns up to 10 results with extracts and thumbnails
   async search(query) {
-    const url = `${WIKI_API}?action=query&generator=search&gsrsearch=${encodeURIComponent(query)}&prop=pageimages|extracts&piprop=thumbnail&pithumbsize=200&pilimit=10&exintro&explaintext&exsentences=2&exlimit=10&format=json&origin=*`;
+    const normalized = normalizeQuery(query);
+    const url = `${WIKI_API}?action=query&generator=search&gsrsearch=${encodeURIComponent(normalized)}&prop=pageimages|extracts&piprop=thumbnail&pithumbsize=200&pilimit=10&exintro&explaintext&exsentences=2&exlimit=10&format=json&origin=*`;
     const res = await fetchWithTimeout(url);
     if (!res) return null;
     try {
@@ -41,7 +62,7 @@ export const WikipediaService = {
       }
       
       // Fallback search list if generator is empty
-      const listUrl = `${WIKI_API}?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&origin=*&srlimit=10`;
+      const listUrl = `${WIKI_API}?action=query&list=search&srsearch=${encodeURIComponent(normalized)}&format=json&origin=*&srlimit=10`;
       const listRes = await fetchWithTimeout(listUrl);
       if (!listRes) return null;
       const listData = await listRes.json();
@@ -68,6 +89,22 @@ export const WikipediaService = {
     } catch (e) {
       console.error("Failed to parse summary data", e);
       return null;
+    }
+  },
+
+  // GET LEAD EXTRACT: Get full detailed introduction text of a page
+  async getLeadExtract(title) {
+    const url = `${WIKI_API}?action=query&titles=${encodeURIComponent(title)}&prop=extracts&exintro&explaintext&format=json&origin=*`;
+    const res = await fetchWithTimeout(url);
+    if (!res) return "";
+    try {
+      const data = await res.json();
+      const pages = data.query?.pages || {};
+      const page = Object.values(pages)[0];
+      return page?.extract || "";
+    } catch (e) {
+      console.error("Failed to parse lead extract", e);
+      return "";
     }
   },
 
@@ -224,33 +261,64 @@ export const WikipediaService = {
 
 // Main function: fetch everything for a topic page at once
 export async function fetchTopicData(title, query = "") {
+  let finalTitle = normalizeQuery(title);
   try {
-    const [summaryResult, relatedResult, categoriesResult] = await Promise.allSettled([
-      WikipediaService.getSummary(title),
-      WikipediaService.getRelated(title),
-      WikipediaService.getCategories(title)
+    let summary = null;
+    let leadExtract = "";
+    
+    // Fetch summary first
+    const summaryRes = await WikipediaService.getSummary(finalTitle);
+    if (summaryRes) {
+      summary = summaryRes;
+      
+      // Check for disambiguation page
+      if (summary.type === 'disambiguation' || summary.description?.toLowerCase().includes('disambiguation page')) {
+        console.log(`Detected disambiguation page for "${finalTitle}". Resolving to a specific article...`);
+        const searchHits = await WikipediaService.search(finalTitle);
+        if (searchHits && searchHits.length > 0) {
+          const bestHit = searchHits.find(hit => 
+            !hit.title.toLowerCase().includes('disambiguation') && 
+            hit.title.toLowerCase() !== finalTitle.toLowerCase()
+          ) || searchHits.find(hit => !hit.title.toLowerCase().includes('disambiguation'));
+          
+          if (bestHit) {
+            console.log(`Redirecting disambiguation page from "${finalTitle}" to "${bestHit.title}"`);
+            finalTitle = bestHit.title;
+            summary = await WikipediaService.getSummary(finalTitle);
+          }
+        }
+      }
+    }
+
+    // Fetch lead extract, related, and categories for finalTitle
+    const [leadRes, relatedRes, categoriesRes] = await Promise.allSettled([
+      WikipediaService.getLeadExtract(finalTitle),
+      WikipediaService.getRelated(finalTitle),
+      WikipediaService.getCategories(finalTitle)
     ]);
 
-    const summary = summaryResult.status === 'fulfilled' ? summaryResult.value : null;
-    const related = relatedResult.status === 'fulfilled' ? relatedResult.value : null;
-    const categories = categoriesResult.status === 'fulfilled' ? categoriesResult.value : null;
+    leadExtract = leadRes.status === 'fulfilled' ? leadRes.value : "";
+    const related = relatedRes.status === 'fulfilled' ? relatedRes.value : null;
+    const categories = categoriesRes.status === 'fulfilled' ? categoriesRes.value : null;
 
     return {
       summary,
+      leadExtract,
       related,
       categories,
       query,
-      title,
+      title: finalTitle,
       fetchedAt: Date.now()
     };
   } catch (error) {
     console.error("Data aggregation error on fetchTopicData", error);
     return {
       summary: null,
+      leadExtract: "",
       related: null,
       categories: null,
       query,
-      title,
+      title: finalTitle,
       fetchedAt: Date.now()
     };
   }

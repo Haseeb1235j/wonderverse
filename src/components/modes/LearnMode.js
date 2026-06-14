@@ -4,192 +4,311 @@ import { VoiceService } from "../../services/voice.js";
 import { WikipediaService } from "../../services/wikipedia.js";
 
 // AI Video Concept Visualizers (Procedural Synthesizers based on Category)
-function drawSpace(ctx, width, height, tick) {
-  ctx.fillStyle = '#05050a';
-  ctx.fillRect(0, 0, width, height);
-  
-  // Accretion Disc glow
-  const cx = width / 2;
-  const cy = height / 2;
-  const discGrad = ctx.createRadialGradient(cx, cy, 10, cx, cy, 150);
-  discGrad.addColorStop(0, '#000000');
-  discGrad.addColorStop(0.1, '#f59e0b');
-  discGrad.addColorStop(0.3, '#7c3aed');
-  discGrad.addColorStop(0.8, 'rgba(6,182,212,0.06)');
-  discGrad.addColorStop(1, 'transparent');
-  
-  ctx.fillStyle = discGrad;
-  ctx.beginPath();
-  ctx.arc(cx, cy, 180, 0, Math.PI * 2);
-  ctx.fill();
-  
-  // Moving orbit streams
-  ctx.strokeStyle = 'rgba(34,211,238,0.2)';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.ellipse(cx, cy, 110, 40, tick * 0.005, 0, Math.PI * 2);
-  ctx.stroke();
-  
-  // Singularity Core
-  ctx.fillStyle = '#000000';
-  ctx.beginPath();
-  ctx.arc(cx, cy, 28 + Math.sin(tick * 0.05) * 2, 0, Math.PI * 2);
-  ctx.fill();
-  
-  // Telemetry grids
-  ctx.strokeStyle = 'rgba(6,182,212,0.1)';
+function drawHUD(ctx, width, height, tick, title, subText) {
+  // 1. Grid backdrop
+  ctx.strokeStyle = 'rgba(6, 182, 212, 0.05)';
   ctx.lineWidth = 0.5;
-  for (let i = 0; i < width; i += 40) {
-    ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, height); ctx.stroke();
+  const gridSize = 30;
+  for (let x = 0; x < width; x += gridSize) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
   }
+  for (let y = 0; y < height; y += gridSize) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
+  }
+
+  // 2. Futuristic Scanline
+  const scanlineY = (tick * 1.5) % height;
+  ctx.strokeStyle = 'rgba(6, 182, 212, 0.08)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, scanlineY);
+  ctx.lineTo(width, scanlineY);
+  ctx.stroke();
+
+  // 3. Telemetry Borders
+  ctx.strokeStyle = 'rgba(6, 182, 212, 0.3)';
+  ctx.lineWidth = 1;
+  // Top-left bracket
+  ctx.beginPath(); ctx.moveTo(15, 30); ctx.lineTo(15, 15); ctx.lineTo(30, 15); ctx.stroke();
+  // Top-right bracket
+  ctx.beginPath(); ctx.moveTo(width - 30, 15); ctx.lineTo(width - 15, 15); ctx.lineTo(width - 15, 30); ctx.stroke();
+  // Bottom-left bracket
+  ctx.beginPath(); ctx.moveTo(15, height - 30); ctx.lineTo(15, height - 15); ctx.lineTo(30, height - 15); ctx.stroke();
+  // Bottom-right bracket
+  ctx.beginPath(); ctx.moveTo(width - 30, height - 15); ctx.lineTo(width - 15, height - 15); ctx.lineTo(width - 15, height - 30); ctx.stroke();
+
+  // 4. Futuristic Text HUD
+  ctx.font = '700 12px var(--font-mono, monospace)';
+  ctx.fillStyle = 'rgba(6, 182, 212, 0.8)';
+  ctx.fillText(`SYSTEM: AI SYNTHESIZER`, 25, 30);
+  
+  ctx.font = '400 9px var(--font-mono, monospace)';
+  ctx.fillStyle = 'rgba(167, 139, 250, 0.6)';
+  ctx.fillText(`TARGET: ${title.toUpperCase()}`, 25, 45);
+  ctx.fillText(`SECTOR: ${subText.toUpperCase()}`, 25, 58);
+
+  ctx.fillStyle = 'rgba(6, 182, 212, 0.5)';
+  ctx.fillText(`COORD: ${Math.sin(tick*0.01).toFixed(4)}`, width - 120, 30);
+  ctx.fillText(`BUFF: NOMINAL`, width - 120, 42);
 }
 
-function drawBiology(ctx, width, height, tick) {
-  ctx.fillStyle = '#05050a';
+function drawSpace(ctx, width, height, tick, title) {
+  ctx.fillStyle = '#030307';
   ctx.fillRect(0, 0, width, height);
-  
+  drawHUD(ctx, width, height, tick, title, 'Cosmic Telemetry');
+
   const cx = width / 2;
-  const points = 15;
+  const cy = height / 2 + 10;
   
-  // Draw DNA double helix
-  for (let i = 0; i < points; i++) {
-    const y = (i / points) * (height - 80) + 40;
-    const angle = (i * 0.4) + (tick * 0.025);
-    const w = 80;
+  // Rotating galaxy accretion disk
+  const numRings = 4;
+  for (let r = 0; r < numRings; r++) {
+    const rx = 140 - r * 25;
+    const ry = 45 - r * 8;
+    const angleOffset = tick * (0.01 + r * 0.005);
     
-    const x1 = cx + Math.sin(angle) * w;
-    const x2 = cx - Math.sin(angle) * w;
+    ctx.strokeStyle = r === 0 ? 'rgba(245, 158, 11, 0.4)' : 'rgba(124, 58, 237, 0.2)';
+    ctx.lineWidth = 2 - r * 0.3;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(angleOffset);
+    ctx.beginPath();
+    ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+    ctx.stroke();
     
-    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    // Glowing stars on orbits
+    const numStars = 6;
+    for (let s = 0; s < numStars; s++) {
+      const starAngle = (s * Math.PI * 2 / numStars) + tick * 0.01;
+      const sx = rx * Math.cos(starAngle);
+      const sy = ry * Math.sin(starAngle);
+      ctx.fillStyle = r % 2 === 0 ? '#22d3ee' : '#fb7185';
+      ctx.beginPath();
+      ctx.arc(sx, sy, 3 - r * 0.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // Black hole core
+  const grad = ctx.createRadialGradient(cx, cy, 5, cx, cy, 32);
+  grad.addColorStop(0, '#000000');
+  grad.addColorStop(0.3, '#000000');
+  grad.addColorStop(0.6, '#f59e0b');
+  grad.addColorStop(0.8, 'rgba(124, 58, 237, 0.4)');
+  grad.addColorStop(1, 'transparent');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 35, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawBiology(ctx, width, height, tick, title) {
+  ctx.fillStyle = '#030307';
+  ctx.fillRect(0, 0, width, height);
+  drawHUD(ctx, width, height, tick, title, 'Genetic Synthesis');
+
+  const cx = width / 2;
+  const cy = height / 2 + 10;
+  const numNodes = 12;
+  
+  // Draw DNA double helix spinning
+  for (let i = 0; i < numNodes; i++) {
+    const yOffset = (i / numNodes) * 180 - 90;
+    const angle = (i * 0.45) + (tick * 0.035);
+    const strandWidth = 70;
+    
+    const x1 = cx + Math.sin(angle) * strandWidth;
+    const x2 = cx - Math.sin(angle) * strandWidth;
+    const y = cy + yOffset;
+    
+    // Connector rungs
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.moveTo(x1, y);
     ctx.lineTo(x2, y);
     ctx.stroke();
-    
-    ctx.fillStyle = '#10b981'; // emerald
+
+    // Node 1
+    ctx.fillStyle = '#10b981';
     ctx.beginPath();
     ctx.arc(x1, y, 6, 0, Math.PI * 2);
     ctx.fill();
-    
-    ctx.fillStyle = '#3b82f6'; // blue
+    // Glowing aura
+    ctx.fillStyle = 'rgba(16, 185, 129, 0.3)';
+    ctx.beginPath();
+    ctx.arc(x1, y, 10, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Node 2
+    ctx.fillStyle = '#3b82f6';
     ctx.beginPath();
     ctx.arc(x2, y, 6, 0, Math.PI * 2);
     ctx.fill();
+    // Glowing aura
+    ctx.fillStyle = 'rgba(59, 130, 246, 0.3)';
+    ctx.beginPath();
+    ctx.arc(x2, y, 10, 0, Math.PI * 2);
+    ctx.fill();
   }
-}
 
-function drawTechnology(ctx, width, height, tick) {
-  ctx.fillStyle = 'rgba(5, 5, 10, 0.25)'; // trail blur
-  ctx.fillRect(0, 0, width, height);
-  
-  const cx = width / 2;
-  const cy = height / 2;
-  
-  ctx.strokeStyle = 'rgba(167, 139, 250, 0.4)';
-  ctx.lineWidth = 2;
-  
-  // Circuit tracks
-  ctx.beginPath();
-  ctx.moveTo(40, cy - 80);
-  ctx.lineTo(cx - 80, cy - 80);
-  ctx.lineTo(cx, cy);
-  ctx.lineTo(width - 40, cy);
-  ctx.stroke();
-  
-  ctx.fillStyle = '#22d3ee';
-  ctx.beginPath();
-  ctx.arc(cx - 80, cy - 80, 5, 0, Math.PI * 2);
-  ctx.arc(cx, cy, 5, 0, Math.PI * 2);
-  ctx.fill();
-  
-  // Binary node data
-  const dataX = (tick * 3) % (width + 100) - 50;
-  ctx.fillStyle = '#34d399';
-  ctx.beginPath();
-  ctx.arc(dataX, cy, 8, 0, Math.PI * 2);
-  ctx.fill();
-}
-
-function drawPhysics(ctx, width, height, tick) {
-  ctx.fillStyle = '#05050a';
-  ctx.fillRect(0, 0, width, height);
-  
-  const cx = width / 2;
-  const cy = height / 2;
-  
-  // Nucleus
-  ctx.fillStyle = '#f43f5e';
-  ctx.beginPath();
-  ctx.arc(cx, cy, 14, 0, Math.PI * 2);
-  ctx.fill();
-  
-  // Orbits
+  // Cellular floating organisms
+  ctx.strokeStyle = 'rgba(34, 211, 238, 0.2)';
   ctx.lineWidth = 1;
-  const orbits = [
-    { rot: Math.PI / 6, speed: 0.02, color: '#22d3ee' },
-    { rot: -Math.PI / 3, speed: 0.015, color: '#a78bfa' },
-    { rot: Math.PI / 2, speed: 0.025, color: '#fb7185' }
-  ];
+  ctx.beginPath();
+  ctx.arc(450, 150 + Math.sin(tick * 0.02) * 10, 15, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(150, 280 + Math.cos(tick * 0.025) * 15, 8, 0, Math.PI * 2);
+  ctx.stroke();
+}
+
+function drawTechnology(ctx, width, height, tick, title) {
+  ctx.fillStyle = 'rgba(3, 3, 7, 0.3)'; // Trail fade for data flow
+  ctx.fillRect(0, 0, width, height);
+  drawHUD(ctx, width, height, tick, title, 'Neural Matrix Network');
+
+  const cx = width / 2;
+  const cy = height / 2 + 10;
   
-  orbits.forEach(o => {
-    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  // Neural nodes
+  const nodes = [
+    { x: cx, y: cy, label: "CORE" },
+    { x: cx - 120, y: cy - 60, label: "DATA" },
+    { x: cx + 120, y: cy - 60, label: "SYS" },
+    { x: cx - 120, y: cy + 60, label: "NET" },
+    { x: cx + 120, y: cy + 60, label: "MEM" },
+  ];
+
+  // Draw circuit traces
+  ctx.strokeStyle = 'rgba(167, 139, 250, 0.2)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  for (let i = 1; i < nodes.length; i++) {
+    ctx.moveTo(nodes[0].x, nodes[0].y);
+    ctx.lineTo(nodes[i].x, nodes[i].y);
+  }
+  ctx.stroke();
+
+  // Pulse data packages along lines
+  nodes.forEach((n, idx) => {
+    if (idx > 0) {
+      const pulseT = (tick * 0.015 + idx * 0.25) % 1.0;
+      const px = nodes[0].x + (n.x - nodes[0].x) * pulseT;
+      const py = nodes[0].y + (n.y - nodes[0].y) * pulseT;
+      ctx.fillStyle = '#22d3ee';
+      ctx.beginPath();
+      ctx.arc(px, py, 4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Node Core
+    ctx.fillStyle = '#09090e';
+    ctx.strokeStyle = idx === 0 ? '#a78bfa' : '#34d399';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(n.x, n.y, 16, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // Node labels
+    ctx.font = '700 8px var(--font-mono)';
+    ctx.fillStyle = '#ffffff';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center';
+    ctx.fillText(n.label, n.x, n.y);
+  });
+  ctx.textAlign = 'left'; // Reset
+}
+
+function drawPhysics(ctx, width, height, tick, title) {
+  ctx.fillStyle = '#030307';
+  ctx.fillRect(0, 0, width, height);
+  drawHUD(ctx, width, height, tick, title, 'Quantum Mechanics');
+
+  const cx = width / 2;
+  const cy = height / 2 + 10;
+
+  // Nucleus particle swarm
+  ctx.fillStyle = '#f43f5e';
+  const numNucleons = 5;
+  for (let i = 0; i < numNucleons; i++) {
+    const nx = cx + Math.sin(tick * 0.05 + i * 72) * 5;
+    const ny = cy + Math.cos(tick * 0.05 + i * 36) * 5;
+    ctx.beginPath();
+    ctx.arc(nx, ny, i % 2 === 0 ? 5 : 6, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Bohr Orbits
+  const orbits = [
+    { rx: 110, ry: 40, rot: Math.PI / 6, speed: 0.02, color: '#22d3ee' },
+    { rx: 140, ry: 50, rot: -Math.PI / 4, speed: 0.015, color: '#a78bfa' },
+    { rx: 160, ry: 30, rot: Math.PI / 2, speed: 0.025, color: '#fb7185' }
+  ];
+
+  orbits.forEach((orb) => {
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+    ctx.lineWidth = 1;
     ctx.save();
     ctx.translate(cx, cy);
-    ctx.rotate(o.rot);
+    ctx.rotate(orb.rot);
     
     ctx.beginPath();
-    ctx.ellipse(0, 0, 120, 40, 0, 0, Math.PI*2);
+    ctx.ellipse(0, 0, orb.rx, orb.ry, 0, 0, Math.PI * 2);
     ctx.stroke();
+
+    // Electron particle
+    const ex = orb.rx * Math.cos(tick * orb.speed);
+    const ey = orb.ry * Math.sin(tick * orb.speed);
     
-    const ex = 120 * Math.cos(tick * o.speed);
-    const ey = 40 * Math.sin(tick * o.speed);
-    ctx.fillStyle = o.color;
+    ctx.fillStyle = orb.color;
     ctx.beginPath();
-    ctx.arc(ex, ey, 6, 0, Math.PI*2);
+    ctx.arc(ex, ey, 5, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
   });
 }
 
-function drawFallback(ctx, width, height, tick) {
-  ctx.fillStyle = '#05050a';
+function drawFallback(ctx, width, height, tick, title) {
+  ctx.fillStyle = '#030307';
   ctx.fillRect(0, 0, width, height);
-  
-  const nodes = [];
-  const nodesCount = 14;
-  for (let i = 0; i < nodesCount; i++) {
-    const x = (Math.sin(i * 354 + tick * 0.0008) * 0.45 + 0.5) * width;
-    const y = (Math.cos(i * 928 + tick * 0.0012) * 0.45 + 0.5) * height;
-    nodes.push({ x, y });
-  }
-  
-  // Lines
-  ctx.strokeStyle = 'rgba(6, 182, 212, 0.12)';
+  drawHUD(ctx, width, height, tick, title, 'Universal Schematic');
+
+  const cx = width / 2;
+  const cy = height / 2 + 10;
+
+  // 3D wireframe rotating globe
+  const globeRadius = 100;
+  ctx.strokeStyle = 'rgba(6, 182, 212, 0.15)';
   ctx.lineWidth = 1;
-  for (let i = 0; i < nodes.length; i++) {
-    for (let j = i + 1; j < nodes.length; j++) {
-      const dist = Math.hypot(nodes[i].x - nodes[j].x, nodes[i].y - nodes[j].y);
-      if (dist < 130) {
-        ctx.beginPath();
-        ctx.moveTo(nodes[i].x, nodes[i].y);
-        ctx.lineTo(nodes[j].x, nodes[j].y);
-        ctx.stroke();
-      }
-    }
-  }
-  
-  // Nodes
-  nodes.forEach((n, idx) => {
-    ctx.fillStyle = idx % 2 === 0 ? '#22d3ee' : '#a78bfa';
+
+  const numLat = 5;
+  for (let i = 1; i < numLat; i++) {
+    const latH = globeRadius * Math.sin((i / numLat) * Math.PI - Math.PI / 2);
+    const latR = globeRadius * Math.cos((i / numLat) * Math.PI - Math.PI / 2);
     ctx.beginPath();
-    ctx.arc(n.x, n.y, 4, 0, Math.PI * 2);
-    ctx.fill();
-  });
+    ctx.ellipse(cx, cy + latH, latR, latR * 0.25, tick * 0.005, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  const numLong = 6;
+  for (let i = 0; i < numLong; i++) {
+    const angle = (i * Math.PI / numLong) + tick * 0.003;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, globeRadius * Math.sin(angle), globeRadius, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  ctx.fillStyle = 'rgba(6, 182, 212, 0.4)';
+  ctx.beginPath();
+  ctx.arc(cx, cy, 8 + Math.sin(tick * 0.05) * 3, 0, Math.PI * 2);
+  ctx.fill();
 }
 
 // Fullscreen Deep Dive Portal Handler
-function openDeepDiveModal(title, category, sections, mediaData, videos, defaultTab = "details") {
+function openDeepDiveModal(title, category, sections, mediaData, videos, defaultTab = "details", learnContent) {
   // Stop any active TTS first
   VoiceService.stop();
 
@@ -422,22 +541,25 @@ function openDeepDiveModal(title, category, sections, mediaData, videos, default
       synthHeaderBtn.disabled = true;
     }
 
-    // Populate dynamic console logs
+    // Populate dynamic console logs using REAL ARTICLE FACTS
     const consoleEl = overlay.querySelector("#synthesis-console-logs");
     if (consoleEl) {
       consoleEl.innerHTML = "";
+      const facts = learnContent?.keyFacts || [];
+      const terms = learnContent?.keyTerms || [];
       const logs = [
         `[0.00s] Initializing WonderVerse Visual Synthesis Engine...`,
-        `[0.05s] Establishing semantic connection to commons database...`,
-        `[0.12s] Resolving coordinates for topic: ${title}...`,
-        `[0.20s] Found topic category: ${category.toUpperCase()}`,
-        `[0.32s] Loading neural procedural shaders...`,
-        `[0.45s] Mapping vector constellations...`,
-        `[0.55s] Starting rendering pipeline (60fps)...`,
-        `[0.70s] Frame Buffer status: OK`,
-        `[0.85s] Synchronizing audio narration telemetry...`,
-        `[1.00s] AI Concept Video compilation: COMPLETE`,
-        `[1.20s] Loop playback ACTIVE`
+        `[0.05s] Establishing connection to Wikipedia Core Database...`,
+        `[0.10s] Resolving telemetry coordinates for: ${title.toUpperCase()}`,
+        `[0.18s] Category classified: ${category.toUpperCase()}`,
+        `[0.25s] Extracting semantic content sections...`,
+        `[0.30s] SUMMARY: "${(learnContent?.overview || "").slice(0, 100)}..."`,
+        `[0.38s] Generating procedural neural visualizations...`,
+        ...facts.map((fact, idx) => `[0.48s] EXTR_FACT_${idx+1}: "${fact.slice(0, 110)}..."`),
+        ...terms.map((t, idx) => `[0.65s] INDEX_VOCAB_${idx+1}: ${t.term} - ${t.definition.slice(0, 90)}`),
+        `[0.85s] Synchronizing background voice narration...`,
+        `[0.95s] Visual synthesis compile status: COMPLETE (60fps)`,
+        `[1.05s] Simulation loop running in telemetry window.`
       ];
       
       let logIdx = 0;
@@ -467,15 +589,15 @@ function openDeepDiveModal(title, category, sections, mediaData, videos, default
         
         const cat = category ? category.toLowerCase() : "";
         if (cat === 'space') {
-          drawSpace(ctx, canvas.width, canvas.height, tick);
+          drawSpace(ctx, canvas.width, canvas.height, tick, title);
         } else if (cat === 'biology' || cat === 'bio') {
-          drawBiology(ctx, canvas.width, canvas.height, tick);
+          drawBiology(ctx, canvas.width, canvas.height, tick, title);
         } else if (cat === 'technology' || cat === 'tech') {
-          drawTechnology(ctx, canvas.width, canvas.height, tick);
-        } else if (cat === 'physics' || cat === 'science') {
-          drawPhysics(ctx, canvas.width, canvas.height, tick);
+          drawTechnology(ctx, canvas.width, canvas.height, tick, title);
+        } else if (cat === 'physics' || cat === 'science' || cat === 'chemistry') {
+          drawPhysics(ctx, canvas.width, canvas.height, tick, title);
         } else {
-          drawFallback(ctx, canvas.width, canvas.height, tick);
+          drawFallback(ctx, canvas.width, canvas.height, tick, title);
         }
         
         const coordEl = overlay.querySelector("#matrix-coord");
@@ -490,7 +612,7 @@ function openDeepDiveModal(title, category, sections, mediaData, videos, default
     }
 
     // AI Narration explaining the topic in the background
-    const textToSpeak = `Synthesized visual compilation for ${title}. Overview: ${sections[0]?.text?.replace(/<[^>]*>/g, '').slice(0, 300) || "Visual animation mapping scientific parameters."}`;
+    const textToSpeak = `Welcome to the WonderVerse AI Video Simulator for ${title}. Here is a summary of the topic: ${learnContent?.overview || ""} Why it matters: ${learnContent?.whyItMatters || ""} How it works: ${learnContent?.howItWorks || ""}`;
     VoiceService.speak(
       textToSpeak,
       () => {},
@@ -734,7 +856,7 @@ export const LearnMode = {
           </div>
 
           <!-- Why it matters -->
-          <div class="card" style="border-left: 4px solid var(--accent-purple);">
+          <div class="card" style="border-left: 4px solid var(--accent-purple);" id="learn-why-card">
             <h3 style="color: var(--accent-purple); margin-top: 0; margin-bottom: var(--space-3); font-size: 1.3rem; display: flex; align-items: center; gap: 8px;">
               🌟 Why it matters
               <button class="btn btn-ghost btn-sm speak-section-btn" data-section="why" style="padding: 2px var(--space-2); font-size: 0.9rem; border-radius: var(--radius-sm);" title="Listen to section">🔊</button>
@@ -745,7 +867,7 @@ export const LearnMode = {
           </div>
 
           <!-- How it works -->
-          <div class="card" style="border-left: 4px solid var(--accent-blue);">
+          <div class="card" style="border-left: 4px solid var(--accent-blue);" id="learn-how-card">
             <h3 style="color: var(--accent-blue); margin-top: 0; margin-bottom: var(--space-3); font-size: 1.3rem; display: flex; align-items: center; gap: 8px;">
               ⚙️ How it works
               <button class="btn btn-ghost btn-sm speak-section-btn" data-section="how" style="padding: 2px var(--space-2); font-size: 0.9rem; border-radius: var(--radius-sm);" title="Listen to section">🔊</button>
@@ -756,7 +878,7 @@ export const LearnMode = {
           </div>
 
           <!-- Real-world examples -->
-          <div class="card" style="border-left: 4px solid var(--accent-amber);">
+          <div class="card" style="border-left: 4px solid var(--accent-amber);" id="learn-examples-card">
             <h3 style="color: var(--accent-amber); margin-top: 0; margin-bottom: var(--space-3); font-size: 1.3rem; display: flex; align-items: center; gap: 8px;">
               🌍 Real-world Examples
               <button class="btn btn-ghost btn-sm speak-section-btn" data-section="examples" style="padding: 2px var(--space-2); font-size: 0.9rem; border-radius: var(--radius-sm);" title="Listen to section">🔊</button>
@@ -817,23 +939,54 @@ export const LearnMode = {
 
     toggleBtn?.addEventListener("click", () => {
       // Stop speaking when toggling ELI10 mode
-      const whatSpeakBtn = document.querySelector('.speak-section-btn[data-section="what"]');
-      if (whatSpeakBtn && whatSpeakBtn.classList.contains("speaking")) {
-        VoiceService.stop();
-      }
+      VoiceService.stop();
+      document.querySelectorAll(".speak-section-btn").forEach(b => {
+        b.innerHTML = "🔊";
+        b.classList.remove("speaking");
+      });
 
       isELI10 = !isELI10;
+      
+      const whatText = document.getElementById("learn-what-text");
+      const whyText = document.getElementById("learn-why-text");
+      const howText = document.getElementById("learn-how-text");
+      const examplesText = document.getElementById("learn-examples-text");
+
+      const whatCard = document.getElementById("learn-what-card");
+      const whyCard = document.getElementById("learn-why-card");
+      const howCard = document.getElementById("learn-how-card");
+      const examplesCard = document.getElementById("learn-examples-card");
+
       if (isELI10) {
-        toggleBtn.innerText = "⭐ Standard Mode";
-        whatCard.style.borderColor = "var(--accent-amber)";
-        whatText.innerHTML = `
-          <strong>ELI10 Mode Active:</strong><br/>
-          ${learnContent.eli5}
-        `;
+        toggleBtn.innerHTML = "⭐ Standard Mode";
+        toggleBtn.style.background = "var(--accent-amber)";
+        toggleBtn.style.color = "#000";
+        toggleBtn.style.boxShadow = "0 0 12px rgba(245, 158, 11, 0.4)";
+        
+        if (whatCard) whatCard.style.borderColor = "var(--accent-amber)";
+        if (whyCard) whyCard.style.borderColor = "var(--accent-amber)";
+        if (howCard) howCard.style.borderColor = "var(--accent-amber)";
+        if (examplesCard) examplesCard.style.borderColor = "var(--accent-amber)";
+
+        if (whatText) whatText.innerHTML = `<span style="color: var(--accent-amber); font-weight: 700; font-size: 0.85rem; display: block; margin-bottom: 4px;">👶 ELI10 • SIMPLE SUMMARY</span>${learnContent.eli10_overview}`;
+        if (whyText) whyText.innerHTML = `<span style="color: var(--accent-amber); font-weight: 700; font-size: 0.85rem; display: block; margin-bottom: 4px;">👶 ELI10 • WHY IT MATTERS</span>${learnContent.eli10_whyItMatters}`;
+        if (howText) howText.innerHTML = `<span style="color: var(--accent-amber); font-weight: 700; font-size: 0.85rem; display: block; margin-bottom: 4px;">👶 ELI10 • HOW IT WORKS</span>${learnContent.eli10_howItWorks}`;
+        if (examplesText) examplesText.innerHTML = `<span style="color: var(--accent-amber); font-weight: 700; font-size: 0.85rem; display: block; margin-bottom: 4px;">👶 ELI10 • REAL WORLD EXAMPLE</span>${learnContent.eli10_realExamples}`;
       } else {
-        toggleBtn.innerText = "👶 Explain Like I'm 10";
-        whatCard.style.borderColor = "var(--accent-cyan)";
-        whatText.innerText = learnContent.overview;
+        toggleBtn.innerHTML = "👶 Explain Like I'm 10";
+        toggleBtn.style.background = "";
+        toggleBtn.style.color = "";
+        toggleBtn.style.boxShadow = "";
+        
+        if (whatCard) whatCard.style.borderColor = "var(--accent-cyan)";
+        if (whyCard) whyCard.style.borderColor = "var(--accent-purple)";
+        if (howCard) howCard.style.borderColor = "var(--accent-blue)";
+        if (examplesCard) examplesCard.style.borderColor = "var(--accent-amber)";
+
+        if (whatText) whatText.innerText = learnContent.overview;
+        if (whyText) whyText.innerText = learnContent.whyItMatters;
+        if (howText) howText.innerText = learnContent.howItWorks;
+        if (examplesText) examplesText.innerText = learnContent.realExamples;
       }
     });
 
@@ -916,7 +1069,7 @@ export const LearnMode = {
           return;
         }
 
-        openDeepDiveModal(topicTitle, topicCategory, sections, mediaData, videos, activeTab);
+        openDeepDiveModal(topicTitle, topicCategory, sections, mediaData, videos, activeTab, learnContent);
       } catch (err) {
         console.error("Deep dive loading failed", err);
         triggerBtn.disabled = false;

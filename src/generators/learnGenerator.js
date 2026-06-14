@@ -2,23 +2,80 @@
 import { helpers } from "../utils/helpers.js";
 
 export function generateLearnContent(title, extract, category) {
-  const sentences = extract.split('. ').filter(s => s.trim().length > 10);
-  const paragraphs = [];
-  let currentPara = [];
+  // Split raw text by paragraphs (Wikipedia lead section usually has multiple paragraph splits)
+  const rawParagraphs = extract.split(/\n+/).map(p => p.trim()).filter(p => p.length > 20);
   
-  sentences.forEach(s => {
-    currentPara.push(s);
-    if (currentPara.length >= 3) { 
-      paragraphs.push(currentPara.join('. ')); 
-      currentPara = []; 
+  let overview = "";
+  let whyItMatters = "";
+  let howItWorks = "";
+  
+  if (rawParagraphs.length >= 3) {
+    overview = rawParagraphs[0];
+    whyItMatters = rawParagraphs[1];
+    howItWorks = rawParagraphs[2];
+  } else if (rawParagraphs.length === 2) {
+    overview = rawParagraphs[0];
+    whyItMatters = rawParagraphs[1];
+    const p1Sentences = rawParagraphs[1].split('. ').filter(s => s.trim().length > 5);
+    if (p1Sentences.length >= 2) {
+      whyItMatters = p1Sentences.slice(0, Math.ceil(p1Sentences.length / 2)).join('. ') + '.';
+      howItWorks = p1Sentences.slice(Math.ceil(p1Sentences.length / 2)).join('. ');
+    } else {
+      howItWorks = `The operational foundation of ${title} relies on key mechanisms within ${category}. Researchers analyze these parameters using scientific frameworks to define their behaviors, relationships, and systemic properties.`;
     }
-  });
-  if (currentPara.length) paragraphs.push(currentPara.join('. '));
+  } else if (rawParagraphs.length === 1) {
+    const sentences = rawParagraphs[0].split('. ').filter(s => s.trim().length > 5);
+    if (sentences.length >= 6) {
+      overview = sentences.slice(0, 2).join('. ') + '.';
+      whyItMatters = sentences.slice(2, 4).join('. ') + '.';
+      howItWorks = sentences.slice(4).join('. ');
+    } else if (sentences.length >= 3) {
+      overview = sentences[0] + '.';
+      whyItMatters = sentences[1] + '.';
+      howItWorks = sentences.slice(2).join('. ');
+    } else {
+      overview = rawParagraphs[0];
+      whyItMatters = `${title} is a critical subject in ${category}. It connects complex academic principles and plays a significant role in modern research, forming the basis for practical and theoretical breakthroughs.`;
+      howItWorks = `The mechanics of ${title} operate through specific structures and interactions. Detailed observation shows how various variables adjust in response to force, energy, or environmental changes within ${category}.`;
+    }
+  } else {
+    overview = `${title} is a primary area of study within the domain of ${category}. It describes a set of principles and structures essential to understanding this field.`;
+    whyItMatters = `${title} holds deep significance because it connects core concepts in ${category}. Studying this topic allows researchers and students to model real-world behaviors and predict outcome dynamics.`;
+    howItWorks = `The underlying system of ${title} works by coordinating physical properties, structural constraints, and mathematical relationships as described in primary literature.`;
+  }
 
-  // Extract key terms: words with 6+ chars appearing 2+ times
+  // Ensure clean trailing periods
+  const cleanTrailingPeriods = (text) => {
+    if (!text) return "";
+    let cleaned = text.trim();
+    while (cleaned.endsWith('.')) {
+      cleaned = cleaned.slice(0, -1);
+    }
+    return cleaned + ".";
+  };
+
+  overview = cleanTrailingPeriods(overview);
+  whyItMatters = cleanTrailingPeriods(whyItMatters);
+  howItWorks = cleanTrailingPeriods(howItWorks);
+
+  const realExamples = generateRealExamples(title, extract, category);
+
+  // Child-friendly dictionary simplifications
+  const firstOverviewSentence = overview.split('. ').filter(Boolean)[0] || "";
+  const firstWhySentence = whyItMatters.split('. ').filter(Boolean)[0] || "";
+  const firstHowSentence = howItWorks.split('. ').filter(Boolean)[0] || "";
+  const firstExampleSentence = realExamples.replace(/We see this in real life where: /i, '').split('. ').filter(Boolean)[0] || "";
+
+  const eli10_overview = simplify(firstOverviewSentence, title);
+  const eli10_whyItMatters = simplify(firstWhySentence, title);
+  const eli10_howItWorks = simplify(firstHowSentence, title);
+  const eli10_realExamples = simplify(firstExampleSentence, title);
+
+  const eli5 = `Imagine explaining ${title} to a 10-year-old: "${eli10_overview}"`;
+
+  // Extract key terms
   const stopWords = new Set(['the','and','for','with','this','that','from','they','have','been','more','also','other','some','such','when','than','into','over','after']);
   const termFreq = {};
-  
   extract.toLowerCase().match(/\b[a-z]{6,}\b/g)?.forEach(w => {
     if (!stopWords.has(w)) termFreq[w] = (termFreq[w]||0)+1;
   });
@@ -32,21 +89,23 @@ export function generateLearnContent(title, extract, category) {
       definition: `Key concept related to the study of ${title}.` 
     }));
 
-  // ELI5 (Explain Like I'm 10)
-  const eli5Sentence = sentences[0] || `${title} is a fascinating subject with unique features.`;
-  const eli5 = `Imagine explaining ${title} to a 10-year-old: "${simplify(eli5Sentence, title)}"`;
+  const allSentences = extract.split('. ').filter(s => s.trim().length > 10);
 
   return {
-    overview: paragraphs[0] || extract || `${title} is a topic from the field of ${category}.`,
-    whyItMatters: paragraphs[1] || `${title} is important because it connects many vital ideas in ${category} and influences our understanding of natural and human processes.`,
-    howItWorks: paragraphs[2] || `The principles behind ${title} involve specific behaviors, conditions, and relationships that researchers study in detail.`,
-    keyFacts: generateKeyFacts(title, extract, sentences),
-    keyTerms: keyTerms.length ? keyTerms : generateFallbackTerms(title, category),
-    realExamples: generateRealExamples(title, extract, category),
-    quickSummary: sentences.slice(0, 2).join('. '),
+    overview,
+    whyItMatters,
+    howItWorks,
+    realExamples,
+    eli10_overview,
+    eli10_whyItMatters,
+    eli10_howItWorks,
+    eli10_realExamples,
     eli5,
+    keyFacts: generateKeyFacts(title, extract, allSentences),
+    keyTerms: keyTerms.length ? keyTerms : generateFallbackTerms(title, category),
+    quickSummary: allSentences.slice(0, 2).join('. ') + '.',
     sourceName: 'Wikipedia (en)',
-    isFromSummary: sentences.length < 5
+    isFromSummary: allSentences.length < 5
   };
 }
 
