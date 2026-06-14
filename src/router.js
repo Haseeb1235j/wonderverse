@@ -8,6 +8,7 @@ import { BadgesPage } from "./pages/BadgesPage.js";
 import { AboutPage } from "./pages/AboutPage.js";
 import { DiagramsHubPage } from "./pages/DiagramsHubPage.js";
 import { ErrorPage } from "./pages/ErrorPage.js";
+import { VoiceService } from "./services/voice.js";
 
 class HashRouter {
   constructor() {
@@ -85,6 +86,9 @@ class HashRouter {
   handleRouting() {
     const { route, params } = this.parseRoute();
     const page = this.routes[route] || ErrorPage;
+
+    // Stop any active speech synthesis on route change
+    VoiceService.stop();
 
     // Clean up previous view to prevent animation frame leaks
     if (this.currentView && typeof this.currentView.destroy === "function") {

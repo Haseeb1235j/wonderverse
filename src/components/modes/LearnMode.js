@@ -1,5 +1,6 @@
 // LearnMode Component
 import { Animations } from "../../utils/animations.js";
+import { VoiceService } from "../../services/voice.js";
 
 export const LearnMode = {
   render(learnContent) {
@@ -30,6 +31,7 @@ export const LearnMode = {
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-3); flex-wrap: wrap; gap: 10px;">
               <h3 style="color: var(--accent-cyan); margin: 0; display: flex; align-items: center; gap: 8px; font-size: 1.3rem;">
                 📖 What it is
+                <button class="btn btn-ghost btn-sm speak-section-btn" data-section="what" style="padding: 2px var(--space-2); font-size: 0.9rem; border-radius: var(--radius-sm);" title="Listen to section">🔊</button>
               </h3>
               <button id="eli10-toggle" class="btn btn-secondary btn-sm" style="border-radius: var(--radius-full);">
                 👶 Explain Like I'm 10
@@ -44,8 +46,9 @@ export const LearnMode = {
           <div class="card" style="border-left: 4px solid var(--accent-purple);">
             <h3 style="color: var(--accent-purple); margin-top: 0; margin-bottom: var(--space-3); font-size: 1.3rem; display: flex; align-items: center; gap: 8px;">
               🌟 Why it matters
+              <button class="btn btn-ghost btn-sm speak-section-btn" data-section="why" style="padding: 2px var(--space-2); font-size: 0.9rem; border-radius: var(--radius-sm);" title="Listen to section">🔊</button>
             </h3>
-            <p class="text-body" style="margin: 0;">
+            <p id="learn-why-text" class="text-body" style="margin: 0;">
               ${learnContent.whyItMatters}
             </p>
           </div>
@@ -54,8 +57,9 @@ export const LearnMode = {
           <div class="card" style="border-left: 4px solid var(--accent-blue);">
             <h3 style="color: var(--accent-blue); margin-top: 0; margin-bottom: var(--space-3); font-size: 1.3rem; display: flex; align-items: center; gap: 8px;">
               ⚙️ How it works
+              <button class="btn btn-ghost btn-sm speak-section-btn" data-section="how" style="padding: 2px var(--space-2); font-size: 0.9rem; border-radius: var(--radius-sm);" title="Listen to section">🔊</button>
             </h3>
-            <p class="text-body" style="margin: 0;">
+            <p id="learn-how-text" class="text-body" style="margin: 0;">
               ${learnContent.howItWorks}
             </p>
           </div>
@@ -64,8 +68,9 @@ export const LearnMode = {
           <div class="card" style="border-left: 4px solid var(--accent-amber);">
             <h3 style="color: var(--accent-amber); margin-top: 0; margin-bottom: var(--space-3); font-size: 1.3rem; display: flex; align-items: center; gap: 8px;">
               🌍 Real-world Examples
+              <button class="btn btn-ghost btn-sm speak-section-btn" data-section="examples" style="padding: 2px var(--space-2); font-size: 0.9rem; border-radius: var(--radius-sm);" title="Listen to section">🔊</button>
             </h3>
-            <p class="text-body" style="margin: 0;">
+            <p id="learn-examples-text" class="text-body" style="margin: 0;">
               ${learnContent.realExamples}
             </p>
           </div>
@@ -102,6 +107,12 @@ export const LearnMode = {
     const whatCard = document.getElementById("learn-what-card");
 
     toggleBtn?.addEventListener("click", () => {
+      // Stop speaking when toggling ELI10 mode
+      const whatSpeakBtn = document.querySelector('.speak-section-btn[data-section="what"]');
+      if (whatSpeakBtn && whatSpeakBtn.classList.contains("speaking")) {
+        VoiceService.stop();
+      }
+
       isELI10 = !isELI10;
       if (isELI10) {
         toggleBtn.innerText = "⭐ Standard Mode";
@@ -115,6 +126,55 @@ export const LearnMode = {
         whatCard.style.borderColor = "var(--accent-cyan)";
         whatText.innerText = learnContent.overview;
       }
+    });
+
+    // Section Speaker Integration
+    const sectionBtns = document.querySelectorAll(".speak-section-btn");
+    sectionBtns.forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        
+        const sectionId = btn.getAttribute("data-section");
+        let textElId = "";
+        if (sectionId === "what") textElId = "learn-what-text";
+        else if (sectionId === "why") textElId = "learn-why-text";
+        else if (sectionId === "how") textElId = "learn-how-text";
+        else if (sectionId === "examples") textElId = "learn-examples-text";
+        
+        const textEl = document.getElementById(textElId);
+        if (!textEl) return;
+        
+        if (btn.classList.contains("speaking")) {
+          VoiceService.stop();
+          return;
+        }
+        
+        // Reset all other section speaker buttons
+        sectionBtns.forEach(b => {
+          b.innerHTML = "🔊";
+          b.classList.remove("speaking");
+        });
+        
+        btn.innerHTML = "⏹️";
+        btn.classList.add("speaking");
+        
+        VoiceService.speak(
+          textEl.innerText,
+          () => {
+            btn.innerHTML = "⏹️";
+            btn.classList.add("speaking");
+          },
+          () => {
+            btn.innerHTML = "🔊";
+            btn.classList.remove("speaking");
+          },
+          (err) => {
+            console.error("Section voice error", err);
+            btn.innerHTML = "🔊";
+            btn.classList.remove("speaking");
+          }
+        );
+      });
     });
   }
 };

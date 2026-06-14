@@ -1,6 +1,7 @@
 // HeroCard Component
 import { StorageService } from "../services/storage.js";
 import { getCategoryIcon, getCategoryLabel, getDifficultyLevel } from "../generators/categoryDetector.js";
+import { VoiceService } from "../services/voice.js";
 
 export const HeroCard = {
   render(summaryData, category) {
@@ -51,6 +52,9 @@ export const HeroCard = {
             <a href="${wikiUrl}" target="_blank" class="btn btn-ghost btn-sm">
               Wikipedia ↗
             </a>
+            <button id="hero-speak-btn" class="btn btn-ghost btn-sm">
+              🔊 Listen
+            </button>
             <button id="hero-share-btn" class="btn btn-ghost btn-sm">
               🔗 Share
             </button>
@@ -99,6 +103,30 @@ export const HeroCard = {
       setTimeout(() => {
         copyBtn.innerText = "📋 Copy Link";
       }, 2000);
+    });
+
+    // Speak / Listen button
+    const speakBtn = document.getElementById("hero-speak-btn");
+    speakBtn?.addEventListener("click", () => {
+      if (VoiceService.isPlaying()) {
+        VoiceService.stop();
+        speakBtn.innerHTML = "🔊 Listen";
+      } else {
+        speakBtn.innerHTML = "⏹️ Stop";
+        VoiceService.speak(
+          summaryData.extract,
+          () => {
+            speakBtn.innerHTML = "⏹️ Stop";
+          },
+          () => {
+            speakBtn.innerHTML = "🔊 Listen";
+          },
+          (err) => {
+            console.error("Hero voice error", err);
+            speakBtn.innerHTML = "🔊 Listen";
+          }
+        );
+      }
     });
   }
 };

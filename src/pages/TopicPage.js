@@ -6,6 +6,7 @@ import { generateLearnContent } from "../generators/learnGenerator.js";
 import { generateDiagram } from "../generators/diagramGenerator.js";
 import { generateQuiz } from "../generators/quizGenerator.js";
 import { StorageService } from "../services/storage.js";
+import { VoiceService } from "../services/voice.js";
 
 import { HeroCard } from "../components/HeroCard.js";
 import { ModeNav } from "../components/ModeNav.js";
@@ -107,6 +108,9 @@ export const TopicPage = {
   },
 
   switchMode(modeId) {
+    // Stop any active narration when changing modes/tabs
+    VoiceService.stop();
+
     this.activeMode = modeId;
     const workspace = document.getElementById("topic-workspace");
     if (!workspace) return;
@@ -160,6 +164,10 @@ export const TopicPage = {
     document.getElementById("error-return-btn")?.addEventListener("click", () => {
       Router.navigate("");
     });
+  },
+
+  destroy() {
+    VoiceService.stop();
   }
 };
 

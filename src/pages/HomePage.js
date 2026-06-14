@@ -5,6 +5,7 @@ import { SearchBar } from "../components/SearchBar.js";
 import { Animations } from "../utils/animations.js";
 import { getCategoryIcon, getCategoryLabel } from "../generators/categoryDetector.js";
 import { StorageService } from "../services/storage.js";
+import { VoiceService } from "../services/voice.js";
 
 // Particle constellation background for the hero section
 function initParticleCanvas(canvasEl) {
@@ -330,6 +331,7 @@ export const HomePage = {
   },
 
   destroy() {
+    VoiceService.stop();
     if (this.cleanupCanvas) {
       this.cleanupCanvas();
       this.cleanupCanvas = null;
