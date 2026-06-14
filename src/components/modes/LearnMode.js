@@ -277,7 +277,7 @@ export const LearnMode = {
     const keyTermsHtml = learnContent.keyTerms.map(kt => `
       <div style="padding: var(--space-3); background: var(--bg-elevated); border: 1px solid var(--border-default); border-radius: var(--radius-md);">
         <strong style="color: var(--accent-violet); font-size: 0.95rem; display: block; margin-bottom: 2px;">${kt.term}</strong>
-        <p style="font-size: 0.825rem; color: var(--text-secondary); margin: 0; line-height: 1.4;">${kt.definition}</p>
+        <p class="vocab-definition" data-term="${kt.term}" style="font-size: 0.825rem; color: var(--text-secondary); margin: 0; line-height: 1.4;">${kt.definition}</p>
       </div>
     `).join("");
 
@@ -485,6 +485,24 @@ export const LearnMode = {
         knowMoreBtn.disabled = false;
         knowMoreBtn.innerHTML = `<span>🔍 Know More & Real Footage</span>`;
         alert("Failed to access deep dive database. Please check connection.");
+      }
+    });
+
+    // Fetch rich dictionary definitions asynchronously
+    document.querySelectorAll(".vocab-definition").forEach(async (el) => {
+      const term = el.getAttribute("data-term");
+      if (!term) return;
+      try {
+        const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(term.toLowerCase())}`);
+        if (res.ok) {
+          const data = await res.json();
+          const definition = data[0]?.meanings?.[0]?.definitions?.[0]?.definition;
+          if (definition) {
+            el.innerText = definition;
+          }
+        }
+      } catch (e) {
+        // Safe fallback to default string
       }
     });
   }
