@@ -185,6 +185,8 @@
   display: none;
   width: 100%;
   height: 100%;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .deep-dive-tab-content.active {
@@ -263,7 +265,8 @@
   padding: var(--space-6);
   overflow-y: auto;
   width: 100%;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
 }
 
 .media-footage-card {
@@ -380,7 +383,8 @@
   padding: var(--space-6);
   overflow-y: auto;
   width: 100%;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
 }
 
 .video-footage-card {

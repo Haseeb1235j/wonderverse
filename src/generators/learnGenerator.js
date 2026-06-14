@@ -67,22 +67,73 @@ function generateKeyFacts(title, extract, sentences) {
 }
 
 function simplify(sentence, title) {
-  // Replace complex words, shorten sentence to under 28 words
-  let simple = sentence.replace(/\b(approximately|predominantly|subsequently|consequently|fundamentally)\b/gi, w => {
-    const map = {
-      'approximately': 'about',
-      'predominantly': 'mostly',
-      'subsequently': 'then',
-      'consequently': 'so',
-      'fundamentally': 'basically'
-    };
-    return map[w.toLowerCase()] || w;
+  if (!sentence) return `${title} is a fascinating subject that we study.`;
+
+  // 1. Clean parentheticals, brackets, and clause boundaries to simplify structure
+  let simple = sentence
+    .replace(/\([^)]*\)/g, "") // Remove parentheticals (like this)
+    .replace(/\[[^\]]*\]/g, "") // Remove brackets [1]
+    .replace(/—[^—]*—/g, "") // Remove em-dash clauses
+    .replace(/—/g, ", ") // Replace single em-dash with comma
+    .replace(/\s+/g, " ") // Normalize spacing
+    .trim();
+
+  // 2. Child-friendly dictionary mapping
+  const dictionary = {
+    'approximately': 'about',
+    'predominantly': 'mostly',
+    'subsequently': 'then',
+    'consequently': 'so',
+    'fundamentally': 'basically',
+    'exhibiting': 'having',
+    'gravitational': 'gravity',
+    'acceleration': 'pull',
+    'electromagnetic': 'light and wave',
+    'interconnected': 'linked',
+    'interconnectivity': 'connection',
+    'muscular': 'strong',
+    'circulatory': 'blood flow',
+    'civilization': 'society',
+    'agricultural': 'farming',
+    'fundamental': 'basic',
+    'properties': 'features',
+    'utilizes': 'uses',
+    'exhibit': 'show',
+    'mechanism': 'way of working',
+    'substantial': 'large',
+    'significant': 'important',
+    'phenomenon': 'event',
+    'constitutes': 'makes up',
+    'primarily': 'mainly',
+    'velocity': 'speed',
+    'trajectory': 'path',
+    'exhibits': 'shows',
+    'originated': 'started',
+    'characteristics': 'features',
+    'components': 'parts',
+    'particles': 'tiny bits',
+    'radiation': 'waves',
+    'composed': 'made'
+  };
+
+  Object.entries(dictionary).forEach(([complex, easy]) => {
+    const regex = new RegExp(`\\b${complex}\\b`, 'gi');
+    simple = simple.replace(regex, easy);
   });
-  
-  const words = simple.split(' ');
-  if (words.length > 28) {
-    return words.slice(0, 28).join(' ') + '...';
+
+  // 3. Shorten to a complete, short sentence (under 18 words)
+  let words = simple.split(' ');
+  if (words.length > 18) {
+    const commaIndex = simple.indexOf(',');
+    if (commaIndex > 15 && commaIndex < 90) {
+      simple = simple.slice(0, commaIndex) + '.';
+    } else {
+      simple = words.slice(0, 16).join(' ') + '.';
+    }
   }
+
+  // Guarantee clean formatting and ends with a single period
+  simple = simple.trim().replace(/\.+$/, '') + '.';
   return simple;
 }
 
