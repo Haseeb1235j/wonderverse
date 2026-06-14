@@ -110,6 +110,48 @@ export const WikipediaService = {
     }
   },
 
+  // GET SECTIONS: Get parsed sections list
+  async getSections(title) {
+    const url = `${WIKI_API}?action=parse&page=${encodeURIComponent(title)}&prop=sections&format=json&origin=*`;
+    const res = await fetchWithTimeout(url);
+    if (!res) return null;
+    try {
+      const data = await res.json();
+      return data.parse?.sections || [];
+    } catch (e) {
+      console.error("Failed to parse sections list", e);
+      return null;
+    }
+  },
+
+  // GET SECTION TEXT: Get HTML content of a specific section
+  async getSectionText(title, index) {
+    const url = `${WIKI_API}?action=parse&page=${encodeURIComponent(title)}&prop=text&section=${index}&format=json&origin=*`;
+    const res = await fetchWithTimeout(url);
+    if (!res) return null;
+    try {
+      const data = await res.json();
+      return data.parse?.text?.["*"] || "";
+    } catch (e) {
+      console.error(`Failed to parse section ${index} text`, e);
+      return null;
+    }
+  },
+
+  // GET MEDIA LIST: Get page image references and URLs
+  async getMediaList(title) {
+    const formattedTitle = encodeURIComponent(title.replace(/ /g, '_'));
+    const url = `${WIKI_REST}/page/media-list/${formattedTitle}`;
+    const res = await fetchWithTimeout(url);
+    if (!res) return null;
+    try {
+      return await res.json();
+    } catch (e) {
+      console.error("Failed to parse media list data", e);
+      return null;
+    }
+  },
+
   // MULTIPLE SEARCHES: For related topics suggestions
   async searchMultiple(queries) {
     const promises = queries.map(q => this.search(q));
