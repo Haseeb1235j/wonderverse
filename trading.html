@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Signal Desk — Chart Analyst (BUY / SELL / HOLD)</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📈</text></svg>" />
+  </head>
+  <body class="signal-desk">
+    <div class="desk-wrap">
+      <a class="back-link" href="./">&larr; Back to WonderVerse</a>
+
+      <header class="desk-header">
+        <div class="ticker-line">30-Year Veteran Desk · Deep Chart Analysis</div>
+        <h1>Signal Desk</h1>
+        <p>Drop a chart screenshot. Get a disciplined BUY / SELL / HOLD verdict with entry, stop-loss, targets, and the full reasoning.</p>
+      </header>
+
+      <section class="panel">
+        <h2>Settings — Anthropic API Key</h2>
+        <div class="key-row">
+          <input id="api-key" type="password" placeholder="sk-ant-..." autocomplete="off" spellcheck="false" />
+          <button id="toggle-key" class="btn-ghost" type="button">Show</button>
+          <button id="save-key" class="btn-ghost" type="button">Save</button>
+        </div>
+        <div id="key-status" class="key-status"></div>
+        <div class="key-help">Get a key at <a href="https://console.anthropic.com/" target="_blank" rel="noopener">console.anthropic.com</a>. It stays in your browser only — never sent anywhere except directly to the Anthropic API.</div>
+      </section>
+
+      <section class="panel">
+        <h2>1 · Chart Screenshot</h2>
+        <div id="drop-zone" class="drop-zone">
+          <input id="file-input" type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden />
+          <span class="dz-icon">🖼️</span>
+          <div>Click to upload, drag &amp; drop, or paste (Ctrl+V) your chart screenshot</div>
+          <div class="dz-hint">Best results: full chart with visible price scale, timeframe, and any indicators you use</div>
+          <div id="preview" hidden>
+            <img id="preview-img" alt="Chart preview" />
+            <button id="clear-image" type="button" title="Remove image">✕</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>2 · Optional Context</h2>
+        <textarea id="context-input" placeholder="Anything the desk should know — asset name, timeframe, your bias, recent news, whether you're already in a position…"></textarea>
+      </section>
+
+      <button id="analyze-btn" class="analyze-btn" disabled>ANALYZE — BUY / SELL / HOLD</button>
+      <div id="status" class="status-line" hidden></div>
+      <div id="error" class="error-box" hidden></div>
+
+      <div id="results" hidden></div>
+    </div>
+
+    <script type="module" src="/src/trading/main.js"></script>
+  </body>
+</html>
