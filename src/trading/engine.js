@@ -1,10 +1,16 @@
 // Signal Desk — free technical-analysis engine (no API key required).
-// Fetches live OHLCV candles from Binance's public market-data API and runs
-// a disciplined rule-based analysis: trend structure, key levels, momentum,
-// confluence scoring, and a risk-managed trade plan. Produces the same
-// result shape as the AI analyst so the UI renderer is shared.
+// Fetches live OHLCV candles and runs a disciplined rule-based analysis:
+// trend structure, key levels, momentum, confluence scoring, and a
+// risk-managed trade plan. Produces the same result shape as the AI analyst
+// so the UI renderer is shared.
+//
+// Markets covered:
+//  - Crypto  → Binance public market-data API (real-time, CORS enabled).
+//              Coins not listed on Binance fall back to Yahoo Finance.
+//  - Forex / gold / silver → Yahoo Finance chart API (fetched through
+//              public CORS relays because Yahoo does not send CORS headers).
 
-const DATA_HOSTS = [
+const BINANCE_HOSTS = [
   'https://data-api.binance.vision', // public market-data mirror (CORS enabled)
   'https://api.binance.com',
 ];
@@ -13,41 +19,226 @@ export const TIMEFRAMES = ['15m', '1h', '4h', '1d', '1w'];
 
 const HIGHER_TF = { '15m': '1h', '1h': '4h', '4h': '1d', '1d': '1w', '1w': '1M' };
 
-export function normalizeSymbol(input) {
+// ---------------- instrument resolution ----------------
+const FX_CODES = new Set([
+  'USD', 'EUR', 'GBP', 'JPY', 'AUD', 'NZD', 'CAD', 'CHF', 'SGD', 'HKD',
+  'SEK', 'NOK', 'DKK', 'MXN', 'ZAR', 'TRY', 'PLN', 'INR', 'CNH', 'CNY', 'THB',
+]);
+const METAL_CODES = new Set(['XAU', 'XAG']);
+const ALIASES = {
+  GOLD: 'XAUUSD', SILVER: 'XAGUSD', BITCOIN: 'BTC', ETHEREUM: 'ETH',
+  SOLANA: 'SOL', DOGE: 'DOGE', DOGECOIN: 'DOGE', RIPPLE: 'XRP', CARDANO: 'ADA',
+};
+
+// Turns whatever the user typed ("btc", "ETH/USD", "eur usd", "gold",
+// "GBPJPY") into a resolved instrument the fetch layer understands.
+export function resolveInstrument(input) {
   let s = String(input || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-  if (!s) return '';
-  // Bare coin name -> USDT pair
-  const quotes = ['USDT', 'USDC', 'FDUSD', 'BTC', 'ETH', 'EUR', 'TRY'];
-  if (!quotes.some((q) => s.endsWith(q) && s.length > q.length)) s += 'USDT';
-  return s;
+  if (!s) return null;
+  s = ALIASES[s] || s;
+
+  // Forex / metals: two recognized 3-letter codes back to back (EURUSD,
+  // GBPJPY, XAUUSD…). Checked before crypto so "EURUSD" never becomes a
+  // bogus Binance pair.
+  if (s.length === 6) {
+    const base = s.slice(0, 3), quote = s.slice(3);
+    const baseOk = FX_CODES.has(base) || METAL_CODES.has(base);
+    if (baseOk && FX_CODES.has(quote) && !(base === 'USD' && quote === 'USD')) {
+      return {
+        market: METAL_CODES.has(base) ? 'metal' : 'forex',
+        display: `${base}/${quote}`,
+        yahoo: [`${s}=X`, ...(s === 'XAUUSD' ? ['GC=F'] : s === 'XAGUSD' ? ['SI=F'] : [])],
+      };
+    }
+  }
+  // Bare fiat code ("EUR") → against USD
+  if (s.length === 3 && FX_CODES.has(s) && s !== 'USD') {
+    return { market: 'forex', display: `${s}/USD`, yahoo: [`${s}USD=X`] };
+  }
+  if (s.length === 3 && METAL_CODES.has(s)) {
+    return { market: 'metal', display: `${s}/USD`, yahoo: [`${s}USD=X`, s === 'XAU' ? 'GC=F' : 'SI=F'] };
+  }
+
+  // Crypto. Normalize any quote spelling to a Binance USDT pair, and keep a
+  // Yahoo fallback for coins Binance doesn't list.
+  let base = s;
+  for (const q of ['USDT', 'USDC', 'FDUSD', 'USD', 'PERP']) {
+    if (base.endsWith(q) && base.length > q.length) { base = base.slice(0, -q.length); break; }
+  }
+  // Explicit non-USD crypto cross (ETHBTC…): pass through to Binance as-is.
+  const crossQuotes = ['BTC', 'ETH', 'BNB', 'EUR', 'TRY'];
+  const cross = crossQuotes.find((q) => s.endsWith(q) && s.length > q.length);
+  if (cross && !FX_CODES.has(s.slice(0, s.length - cross.length))) {
+    return { market: 'crypto', display: s, binance: s, yahoo: [] };
+  }
+  return {
+    market: 'crypto',
+    display: `${base}/USDT`,
+    binance: `${base}USDT`,
+    yahoo: [`${base}-USD`],
+  };
 }
 
-async function fetchKlines(symbol, interval, limit = 300) {
+// Back-compat export used by tests.
+export function normalizeSymbol(input) {
+  const r = resolveInstrument(input);
+  return r ? (r.binance || r.yahoo[0] || '') : '';
+}
+
+// ---------------- data layer ----------------
+async function fetchBinance(symbol, interval, limit = 400) {
   let lastErr;
-  for (const host of DATA_HOSTS) {
+  for (const host of BINANCE_HOSTS) {
     try {
-      const res = await fetch(`${host}/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`);
-      if (res.status === 400) throw Object.assign(new Error(`Symbol "${symbol}" not found on Binance. Try e.g. BTCUSDT, ETHUSDT, SOLUSDT.`), { fatal: true });
-      if (!res.ok) throw new Error(`Market data request failed (${res.status})`);
-      const rows = await res.json();
+      // Klines + live ticker in parallel — the last kline is the currently
+      // forming candle, and the ticker stamps it with the latest trade so
+      // the analysis runs on to-the-second data.
+      const [klRes, tkRes] = await Promise.all([
+        fetch(`${host}/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`),
+        fetch(`${host}/api/v3/ticker/price?symbol=${symbol}`).catch(() => null),
+      ]);
+      if (klRes.status === 400) throw Object.assign(new Error('not-listed'), { notListed: true });
+      if (!klRes.ok) throw new Error(`Market data request failed (${klRes.status})`);
+      const rows = await klRes.json();
       if (!Array.isArray(rows) || rows.length < 60) {
         throw Object.assign(new Error('Not enough price history for this pair/timeframe.'), { fatal: true });
       }
-      return rows.map((r) => ({
+      const candles = rows.map((r) => ({
         time: r[0], open: +r[1], high: +r[2], low: +r[3], close: +r[4], volume: +r[5],
       }));
+      if (tkRes && tkRes.ok) {
+        const tick = await tkRes.json();
+        const live = +tick.price;
+        if (isFinite(live) && live > 0) {
+          const last = candles[candles.length - 1];
+          last.close = live;
+          last.high = Math.max(last.high, live);
+          last.low = Math.min(last.low, live);
+        }
+      }
+      return { candles, source: 'Binance (live)' };
     } catch (e) {
-      if (e.fatal) throw e;
+      if (e.fatal || e.notListed) throw e;
       lastErr = e;
     }
   }
-  throw new Error(`Could not reach Binance market data (${lastErr?.message || 'network error'}). Check your connection and try again.`);
+  throw new Error(`Could not reach Binance market data (${lastErr?.message || 'network error'}).`);
+}
+
+// Yahoo's chart API has no CORS headers, so browser calls go through public
+// relays. Several are tried in order — any one working is enough.
+const CORS_RELAYS = [
+  (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+  (u) => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
+  (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+];
+
+const YAHOO_INTERVALS = {
+  '15m': { interval: '15m', range: '20d' },
+  '1h': { interval: '60m', range: '60d' },
+  '4h': { interval: '60m', range: '180d', bucket: 4 * 3600 * 1000 },
+  '1d': { interval: '1d', range: '2y' },
+  '1w': { interval: '1wk', range: '10y' },
+};
+
+function aggregate(candles, bucketMs) {
+  const out = [];
+  for (const c of candles) {
+    const t = Math.floor(c.time / bucketMs) * bucketMs;
+    const last = out[out.length - 1];
+    if (last && last.time === t) {
+      last.high = Math.max(last.high, c.high);
+      last.low = Math.min(last.low, c.low);
+      last.close = c.close;
+      last.volume += c.volume;
+    } else {
+      out.push({ time: t, open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume });
+    }
+  }
+  return out;
+}
+
+async function fetchYahoo(symbols, interval) {
+  const cfg = YAHOO_INTERVALS[interval];
+  let lastErr;
+  for (const sym of symbols) {
+    // cb busts relay-side caches so quotes stay fresh.
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=${cfg.interval}&range=${cfg.range}&includePrePost=false&cb=${Date.now()}`;
+    for (const relay of CORS_RELAYS) {
+      try {
+        const res = await fetch(relay(url));
+        if (!res.ok) throw new Error(`relay ${res.status}`);
+        const data = await res.json();
+        const result = data?.chart?.result?.[0];
+        if (!result) { lastErr = new Error(data?.chart?.error?.description || 'symbol not found'); break; }
+        const ts = result.timestamp || [];
+        const q = result.indicators?.quote?.[0] || {};
+        let candles = [];
+        for (let i = 0; i < ts.length; i++) {
+          if (q.close?.[i] == null || q.open?.[i] == null) continue;
+          candles.push({
+            time: ts[i] * 1000,
+            open: q.open[i], high: q.high[i], low: q.low[i], close: q.close[i],
+            volume: q.volume?.[i] || 0,
+          });
+        }
+        if (cfg.bucket) candles = aggregate(candles, cfg.bucket);
+        candles = candles.slice(-400);
+        if (candles.length < 60) throw new Error('not enough history');
+        const live = result.meta?.regularMarketPrice;
+        if (isFinite(live) && live > 0) {
+          const last = candles[candles.length - 1];
+          last.close = live;
+          last.high = Math.max(last.high, live);
+          last.low = Math.min(last.low, live);
+        }
+        return { candles, source: 'Yahoo Finance' };
+      } catch (e) {
+        lastErr = e;
+      }
+    }
+  }
+  throw new Error(`Could not load market data for this symbol (${lastErr?.message || 'network error'}). Check the symbol and try again.`);
+}
+
+async function fetchCandles(instr, interval) {
+  if (instr.market === 'crypto' && instr.binance) {
+    try {
+      return await fetchBinance(instr.binance, interval);
+    } catch (e) {
+      if (!e.notListed || !instr.yahoo.length) {
+        if (e.notListed) {
+          throw new Error(`"${instr.display}" isn't listed on Binance. Try the full pair, e.g. BTCUSDT, ETHUSDT, or a forex pair like EURUSD.`);
+        }
+        throw e;
+      }
+      return fetchYahoo(instr.yahoo, interval); // coin not on Binance → Yahoo
+    }
+  }
+  return fetchYahoo(instr.yahoo, interval);
+}
+
+// Lightweight live-quote lookup used by the UI to keep the shown price
+// fresh after the analysis has rendered.
+export async function fetchLivePrice(instr) {
+  if (instr.market === 'crypto' && instr.binance) {
+    for (const host of BINANCE_HOSTS) {
+      try {
+        const res = await fetch(`${host}/api/v3/ticker/price?symbol=${instr.binance}`);
+        if (!res.ok) continue;
+        const p = +(await res.json()).price;
+        if (isFinite(p) && p > 0) return p;
+      } catch { /* try next host */ }
+    }
+  }
+  return null; // forex relies on the analysis timestamp + manual refresh
 }
 
 // ---------------- indicator math ----------------
 function ema(values, period) {
   const k = 2 / (period + 1);
   const out = new Array(values.length).fill(null);
+  if (values.length < period) return out;
   let prev = values.slice(0, period).reduce((a, b) => a + b, 0) / period;
   out[period - 1] = prev;
   for (let i = period; i < values.length; i++) {
@@ -149,7 +340,7 @@ function levelZones(points, tolerance) {
   return zones.sort((a, b) => b.touches - a.touches || b.lastIndex - a.lastIndex);
 }
 
-function fmt(price) {
+export function fmt(price) {
   if (!isFinite(price)) return '—';
   if (price >= 1000) return price.toLocaleString('en-US', { maximumFractionDigits: 0 });
   if (price >= 10) return price.toFixed(2);
@@ -159,10 +350,14 @@ function fmt(price) {
 
 // ---------------- the analysis ----------------
 export async function analyzeLive(symbolInput, interval) {
-  const symbol = normalizeSymbol(symbolInput);
-  if (!symbol) throw new Error('Enter a symbol, e.g. BTC or BTCUSDT.');
-  const candles = await fetchKlines(symbol, interval);
-  return buildAnalysis(symbol, interval, candles);
+  const instr = resolveInstrument(symbolInput);
+  if (!instr) throw new Error('Enter a symbol — e.g. BTC, ETHUSDT, EURUSD, GBPJPY, GOLD.');
+  const { candles, source } = await fetchCandles(instr, interval);
+  const analysis = buildAnalysis(instr.display, interval, candles);
+  analysis.source = source;
+  analysis.as_of = Date.now();
+  analysis.instrument = instr;
+  return analysis;
 }
 
 export function buildAnalysis(symbol, interval, candles) {
@@ -239,8 +434,11 @@ export function buildAnalysis(symbol, interval, candles) {
 
   const volNow = vols[n], volAvg = volSma[n] || volNow;
   const lastBull = closes[n] >= candles[n].open;
-  add('Volume', `Current volume ${(volNow / volAvg).toFixed(2)}x the 20-bar average on a ${lastBull ? 'green' : 'red'} candle.`,
-    volNow > 1.2 * volAvg ? (lastBull ? 'bullish' : 'bearish') : 'neutral');
+  const hasVolume = volAvg > 0;
+  add('Volume', hasVolume
+    ? `Current volume ${(volNow / volAvg).toFixed(2)}x the 20-bar average on a ${lastBull ? 'green' : 'red'} candle.`
+    : 'No volume data for this market (typical for spot forex).',
+  hasVolume && volNow > 1.2 * volAvg ? (lastBull ? 'bullish' : 'bearish') : 'neutral');
 
   add('Location vs levels',
     nearSupport ? `Price is within 1.5×ATR of support ${fmt(nearestSup.price)} (${nearestSup.touches} touches).`
@@ -308,6 +506,86 @@ export function buildAnalysis(symbol, interval, candles) {
     }
   }
 
+  // ---- HOLD watch plan: the exact conditions that would turn this into a
+  // trade, each with its own stop and 2:1-minimum targets, so "HOLD" always
+  // answers "then when DO I buy or sell?" ----
+  const watchPlans = [];
+  if (verdict === 'HOLD') {
+    if (nearestRes) {
+      const entry = nearestRes.price + 0.25 * a;
+      const stop = nearestRes.price - a;
+      const risk = entry - stop;
+      const nextRes = resistanceZones.slice().sort((x, y) => x.price - y.price)[1]?.price;
+      const tp1 = nextRes && nextRes >= entry + 2 * risk ? nextRes : entry + 2.2 * risk;
+      const tp2 = Math.max(entry + 3.5 * risk, nextRes ?? 0);
+      watchPlans.push({
+        side: 'BUY',
+        trigger: `Candle CLOSES above resistance ${fmt(nearestRes.price)} with above-average volume`,
+        entry: fmt(entry),
+        stop_loss: `${fmt(stop)} (back inside the broken level = failed breakout)`,
+        take_profit_1: fmt(tp1),
+        take_profit_2: fmt(tp2),
+        risk_reward: `${((tp1 - entry) / risk).toFixed(1)} : 1`,
+        note: 'Do not chase a wick through the level — wait for the candle close.',
+      });
+    }
+    if (nearestSup) {
+      const entry = nearestSup.price - 0.25 * a;
+      const stop = nearestSup.price + a;
+      const risk = stop - entry;
+      const nextSup = supportZones.slice().sort((x, y) => y.price - x.price)[1]?.price;
+      const tp1 = nextSup && nextSup <= entry - 2 * risk ? nextSup : entry - 2.2 * risk;
+      const tp2 = Math.min(entry - 3.5 * risk, nextSup ?? Infinity);
+      watchPlans.push({
+        side: 'SELL',
+        trigger: `Candle CLOSES below support ${fmt(nearestSup.price)} with above-average volume`,
+        entry: fmt(entry),
+        stop_loss: `${fmt(stop)} (back above the broken level = failed breakdown)`,
+        take_profit_1: fmt(tp1),
+        take_profit_2: fmt(tp2),
+        risk_reward: `${((entry - tp1) / risk).toFixed(1)} : 1`,
+        note: 'Do not chase a wick through the level — wait for the candle close.',
+      });
+    }
+    // In a trend, the pullback entry usually comes before the breakout — put
+    // the with-trend trigger first.
+    if (structureTrend === 'uptrend' && nearestSup && nearestRes) {
+      const entry = nearestSup.price + 0.25 * a;
+      const stop = nearestSup.price - 0.75 * a;
+      const risk = entry - stop;
+      const tp1 = nearestRes.price;
+      if ((tp1 - entry) / risk >= 2) {
+        watchPlans.unshift({
+          side: 'BUY',
+          trigger: `Pullback into support ${fmt(nearestSup.price)} that holds (bullish rejection candle)`,
+          entry: fmt(entry),
+          stop_loss: `${fmt(stop)} (below the support zone)`,
+          take_profit_1: fmt(tp1),
+          take_profit_2: fmt(Math.max(tp1 + 2 * a, entry + 3.5 * risk)),
+          risk_reward: `${((tp1 - entry) / risk).toFixed(1)} : 1`,
+          note: 'With-trend entry — the higher-probability setup in an uptrend.',
+        });
+      }
+    } else if (structureTrend === 'downtrend' && nearestSup && nearestRes) {
+      const entry = nearestRes.price - 0.25 * a;
+      const stop = nearestRes.price + 0.75 * a;
+      const risk = stop - entry;
+      const tp1 = nearestSup.price;
+      if ((entry - tp1) / risk >= 2) {
+        watchPlans.unshift({
+          side: 'SELL',
+          trigger: `Bounce into resistance ${fmt(nearestRes.price)} that stalls (bearish rejection candle)`,
+          entry: fmt(entry),
+          stop_loss: `${fmt(stop)} (above the resistance zone)`,
+          take_profit_1: fmt(tp1),
+          take_profit_2: fmt(Math.min(tp1 - 2 * a, entry - 3.5 * risk)),
+          risk_reward: `${((entry - tp1) / risk).toFixed(1)} : 1`,
+          note: 'With-trend entry — the higher-probability setup in a downtrend.',
+        });
+      }
+    }
+  }
+
   // confidence: scaled by |score|, capped at 80 (single-timeframe discipline)
   let confidence = verdict === 'HOLD'
     ? Math.min(50, 30 + Math.abs(score) * 4)
@@ -325,17 +603,17 @@ export function buildAnalysis(symbol, interval, candles) {
     ? `A decisive candle close below ${nearestSup ? fmt(nearestSup.price - 0.5 * a) : fmt(price - 2 * a)} invalidates the long idea.`
     : verdict === 'SELL'
       ? `A decisive candle close above ${nearestRes ? fmt(nearestRes.price + 0.5 * a) : fmt(price + 2 * a)} invalidates the short idea.`
-      : `${rrNote || 'No position to invalidate.'} A breakout close ${nearestRes ? `above ${fmt(nearestRes.price)}` : 'above resistance'} or breakdown ${nearestSup ? `below ${fmt(nearestSup.price)}` : 'below support'} with volume would create a fresh setup.`;
+      : `${rrNote || 'No position to invalidate.'} The watch plan above lists the exact triggers that create a fresh setup.`;
 
   const summary = verdict === 'HOLD'
-    ? (rrNote || `${symbol} on the ${interval} is ${structureTrend === 'range' ? 'ranging' : `in a ${structureTrend}`} with ${bullFactors} bullish vs ${bearFactors} bearish factors — not enough one-sided confluence to justify a position. Cash is a position.`)
+    ? (rrNote || `${symbol} on the ${interval} is ${structureTrend === 'range' ? 'ranging' : `in a ${structureTrend}`} with ${bullFactors} bullish vs ${bearFactors} bearish factors — not enough one-sided confluence to justify a position right now. The watch plan below shows exactly what would change that.`)
     : `${symbol} on the ${interval} shows ${bullFactors} bullish vs ${bearFactors} bearish factors in a ${structureTrend}, with price ${nearSupport ? 'at support' : nearResistance ? 'at resistance' : 'in play'} — a disciplined ${verdict.toLowerCase()} setup with defined risk.`;
 
   const reasoning = [
     `Score check: ${bullFactors} bullish, ${bearFactors} bearish, net ${score >= 0 ? '+' : ''}${score}. Structure says ${structureTrend}; the 200-EMA filter says ${ema200[n] == null ? 'insufficient history' : price > ema200[n] ? 'bulls control the big picture' : 'bears control the big picture'}.`,
     verdict === 'BUY' ? `The long works because structure, trend filter, and momentum agree while price is ${nearSupport ? `sitting on a ${nearestSup.touches}-touch support zone at ${fmt(nearestSup.price)}` : 'not yet extended'}. The stop goes where the idea is wrong — beyond support — never at an arbitrary percentage.`
       : verdict === 'SELL' ? `The short works because structure, trend filter, and momentum agree while price is ${nearResistance ? `pressing into a ${nearestRes.touches}-touch resistance zone at ${fmt(nearestRes.price)}` : 'not yet extended'}. The stop goes beyond resistance — where the idea is proven wrong.`
-        : `Standing aside is the professional call here: ${rrNote || 'the factors are split and price is not at a level where being wrong is cheap. Most charts, most of the time, are a HOLD.'} Set an alert at the levels above and let the market come to you.`,
+        : `Standing aside is the professional call here: ${rrNote || 'the factors are split and price is not at a level where being wrong is cheap. Most charts, most of the time, are a HOLD.'} Set alerts at the trigger levels in the watch plan and let the market come to you.`,
     'This is a single-timeframe read on live data. Confirm the bias on the higher timeframe before committing, and never risk more than 1–2% per trade.',
   ].join('\n');
 
@@ -357,6 +635,7 @@ export function buildAnalysis(symbol, interval, candles) {
     },
     technicals,
     trade_plan: tradePlan,
+    watch_plan: watchPlans,
     confluences,
     risks,
     invalidation,
