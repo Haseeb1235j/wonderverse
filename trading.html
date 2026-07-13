@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Signal Desk — BUY / SELL / HOLD Analyst</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📈</text></svg>" />
-    <script type="module" crossorigin src="./assets/trading-olL0wpy2.js"></script>
+    <script type="module" crossorigin src="./assets/trading-CwvdUDnK.js"></script>
     <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-Dezn_h7o.js">
-    <link rel="stylesheet" crossorigin href="./assets/trading-B8otkMUe.css">
+    <link rel="stylesheet" crossorigin href="./assets/trading-C9BjwqP-.css">
   </head>
   <body class="signal-desk">
     <div class="desk-wrap">
@@ -27,20 +27,29 @@
       <!-- ============ LIVE MODE (free, no key) ============ -->
       <div id="live-mode">
         <section class="panel">
-          <h2>1 · Pick a coin &amp; timeframe</h2>
+          <h2>1 · Pick a market &amp; timeframe</h2>
           <div class="live-row">
-            <input id="symbol-input" list="symbol-list" placeholder="BTC, ETH, SOL, BTCUSDT…" autocomplete="off" spellcheck="false" value="BTC" />
+            <input id="symbol-input" list="symbol-list" placeholder="BTC, ETH, EURUSD, GBPJPY, GOLD…" autocomplete="off" spellcheck="false" value="BTC" />
             <datalist id="symbol-list">
-              <option value="BTCUSDT">Bitcoin</option>
-              <option value="ETHUSDT">Ethereum</option>
-              <option value="SOLUSDT">Solana</option>
-              <option value="BNBUSDT">BNB</option>
-              <option value="XRPUSDT">XRP</option>
-              <option value="DOGEUSDT">Dogecoin</option>
-              <option value="ADAUSDT">Cardano</option>
-              <option value="AVAXUSDT">Avalanche</option>
-              <option value="LINKUSDT">Chainlink</option>
-              <option value="LTCUSDT">Litecoin</option>
+              <option value="BTC">Bitcoin</option>
+              <option value="ETH">Ethereum</option>
+              <option value="SOL">Solana</option>
+              <option value="BNB">BNB</option>
+              <option value="XRP">XRP</option>
+              <option value="DOGE">Dogecoin</option>
+              <option value="ADA">Cardano</option>
+              <option value="AVAX">Avalanche</option>
+              <option value="LINK">Chainlink</option>
+              <option value="EURUSD">Euro / US Dollar</option>
+              <option value="GBPUSD">British Pound / US Dollar</option>
+              <option value="USDJPY">US Dollar / Japanese Yen</option>
+              <option value="GBPJPY">British Pound / Japanese Yen</option>
+              <option value="AUDUSD">Australian Dollar / US Dollar</option>
+              <option value="USDCAD">US Dollar / Canadian Dollar</option>
+              <option value="USDCHF">US Dollar / Swiss Franc</option>
+              <option value="NZDUSD">New Zealand Dollar / US Dollar</option>
+              <option value="XAUUSD">Gold / US Dollar</option>
+              <option value="XAGUSD">Silver / US Dollar</option>
             </datalist>
             <select id="tf-select" aria-label="Timeframe">
               <option value="15m">15 min</option>
@@ -50,7 +59,7 @@
               <option value="1w">1 week</option>
             </select>
           </div>
-          <div class="live-hint">Uses live Binance market data — no account, no key, nothing to buy. Works for crypto pairs.</div>
+          <div class="live-hint">Live data for <strong>any crypto pair, all major forex pairs, gold &amp; silver</strong> — no account, no key, nothing to buy. Try BTC, ETHUSDT, EURUSD, GBPJPY, or GOLD.</div>
         </section>
       </div>
 
@@ -92,6 +101,20 @@
       <div id="error" class="error-box" hidden></div>
 
       <div id="results" hidden></div>
+    </div>
+
+    <!-- Post-analysis notice -->
+    <div id="desk-notice" class="notice-overlay" hidden>
+      <div class="notice-card" role="dialog" aria-labelledby="notice-title">
+        <div class="notice-icon">🛡️</div>
+        <h3 id="notice-title">A quick note from the desk</h3>
+        <p>Signal Desk is an <strong>educational market-analysis tool</strong>. It reads live charts the way a professional desk would, but it is not a licensed financial advisor and its verdicts are not financial advice or a guarantee of profit.</p>
+        <p>Markets involve real risk. Every setup here comes with a stop-loss for a reason — always use it, size positions at 1–2% of your account, and make your own final decision (or consult a licensed advisor) before trading.</p>
+        <div class="notice-actions">
+          <button id="notice-ok" class="notice-btn primary" type="button">Got it — show my analysis</button>
+          <button id="notice-skip" class="notice-btn" type="button">Don't show this again</button>
+        </div>
+      </div>
     </div>
 
   </body>
