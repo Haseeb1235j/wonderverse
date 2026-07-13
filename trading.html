@@ -3,53 +3,91 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Signal Desk — Chart Analyst (BUY / SELL / HOLD)</title>
+    <title>Signal Desk — BUY / SELL / HOLD Analyst</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📈</text></svg>" />
-    <script type="module" crossorigin src="./assets/trading-Gz9hvu3D.js"></script>
+    <script type="module" crossorigin src="./assets/trading-olL0wpy2.js"></script>
     <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-Dezn_h7o.js">
-    <link rel="stylesheet" crossorigin href="./assets/trading-KK-ifpn4.css">
+    <link rel="stylesheet" crossorigin href="./assets/trading-B8otkMUe.css">
   </head>
   <body class="signal-desk">
     <div class="desk-wrap">
       <a class="back-link" href="./">&larr; Back to WonderVerse</a>
 
       <header class="desk-header">
-        <div class="ticker-line">30-Year Veteran Desk · Deep Chart Analysis</div>
+        <div class="ticker-line">Veteran Desk · Deep Chart Analysis</div>
         <h1>Signal Desk</h1>
-        <p>Drop a chart screenshot. Get a disciplined BUY / SELL / HOLD verdict with entry, stop-loss, targets, and the full reasoning.</p>
+        <p>Get a disciplined BUY / SELL / HOLD verdict with entry, stop-loss, targets, and the full reasoning.</p>
       </header>
 
-      <section class="panel">
-        <h2>Settings — Anthropic API Key</h2>
-        <div class="key-row">
-          <input id="api-key" type="password" placeholder="sk-ant-..." autocomplete="off" spellcheck="false" />
-          <button id="toggle-key" class="btn-ghost" type="button">Show</button>
-          <button id="save-key" class="btn-ghost" type="button">Save</button>
-        </div>
-        <div id="key-status" class="key-status"></div>
-        <div class="key-help">Get a key at <a href="https://console.anthropic.com/" target="_blank" rel="noopener">console.anthropic.com</a>. It stays in your browser only — never sent anywhere except directly to the Anthropic API.</div>
-      </section>
+      <div class="mode-tabs" role="tablist">
+        <button id="tab-live" class="mode-tab active" type="button" role="tab" aria-selected="true">⚡ Live Signal <span class="free-badge">FREE</span></button>
+        <button id="tab-ai" class="mode-tab" type="button" role="tab" aria-selected="false">🖼️ Screenshot AI <span class="adv-badge">needs API key</span></button>
+      </div>
 
-      <section class="panel">
-        <h2>1 · Chart Screenshot</h2>
-        <div id="drop-zone" class="drop-zone">
-          <input id="file-input" type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden />
-          <span class="dz-icon">🖼️</span>
-          <div>Click to upload, drag &amp; drop, or paste (Ctrl+V) your chart screenshot</div>
-          <div class="dz-hint">Best results: full chart with visible price scale, timeframe, and any indicators you use</div>
-          <div id="preview" hidden>
-            <img id="preview-img" alt="Chart preview" />
-            <button id="clear-image" type="button" title="Remove image">✕</button>
+      <!-- ============ LIVE MODE (free, no key) ============ -->
+      <div id="live-mode">
+        <section class="panel">
+          <h2>1 · Pick a coin &amp; timeframe</h2>
+          <div class="live-row">
+            <input id="symbol-input" list="symbol-list" placeholder="BTC, ETH, SOL, BTCUSDT…" autocomplete="off" spellcheck="false" value="BTC" />
+            <datalist id="symbol-list">
+              <option value="BTCUSDT">Bitcoin</option>
+              <option value="ETHUSDT">Ethereum</option>
+              <option value="SOLUSDT">Solana</option>
+              <option value="BNBUSDT">BNB</option>
+              <option value="XRPUSDT">XRP</option>
+              <option value="DOGEUSDT">Dogecoin</option>
+              <option value="ADAUSDT">Cardano</option>
+              <option value="AVAXUSDT">Avalanche</option>
+              <option value="LINKUSDT">Chainlink</option>
+              <option value="LTCUSDT">Litecoin</option>
+            </datalist>
+            <select id="tf-select" aria-label="Timeframe">
+              <option value="15m">15 min</option>
+              <option value="1h" selected>1 hour</option>
+              <option value="4h">4 hours</option>
+              <option value="1d">1 day</option>
+              <option value="1w">1 week</option>
+            </select>
           </div>
-        </div>
-      </section>
+          <div class="live-hint">Uses live Binance market data — no account, no key, nothing to buy. Works for crypto pairs.</div>
+        </section>
+      </div>
 
-      <section class="panel">
-        <h2>2 · Optional Context</h2>
-        <textarea id="context-input" placeholder="Anything the desk should know — asset name, timeframe, your bias, recent news, whether you're already in a position…"></textarea>
-      </section>
+      <!-- ============ AI MODE (screenshot, needs key) ============ -->
+      <div id="ai-mode" hidden>
+        <section class="panel">
+          <h2>Settings — Anthropic API Key</h2>
+          <div class="key-row">
+            <input id="api-key" type="password" placeholder="sk-ant-..." autocomplete="off" spellcheck="false" />
+            <button id="toggle-key" class="btn-ghost" type="button">Show</button>
+            <button id="save-key" class="btn-ghost" type="button">Save</button>
+          </div>
+          <div id="key-status" class="key-status"></div>
+          <div class="key-help">This advanced mode analyzes any chart screenshot (stocks, forex, crypto) with Claude AI. It needs a paid key from <a href="https://console.anthropic.com/" target="_blank" rel="noopener">console.anthropic.com</a> — if you don't want that, use the free Live Signal tab instead. The key stays in your browser only.</div>
+        </section>
 
-      <button id="analyze-btn" class="analyze-btn" disabled>ANALYZE — BUY / SELL / HOLD</button>
+        <section class="panel">
+          <h2>1 · Chart Screenshot</h2>
+          <div id="drop-zone" class="drop-zone">
+            <input id="file-input" type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden />
+            <span class="dz-icon">🖼️</span>
+            <div>Click to upload, drag &amp; drop, or paste (Ctrl+V) your chart screenshot</div>
+            <div class="dz-hint">Best results: full chart with visible price scale, timeframe, and any indicators you use</div>
+            <div id="preview" hidden>
+              <img id="preview-img" alt="Chart preview" />
+              <button id="clear-image" type="button" title="Remove image">✕</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>2 · Optional Context</h2>
+          <textarea id="context-input" placeholder="Anything the desk should know — asset name, timeframe, your bias, recent news, whether you're already in a position…"></textarea>
+        </section>
+      </div>
+
+      <button id="analyze-btn" class="analyze-btn">ANALYZE — BUY / SELL / HOLD</button>
       <div id="status" class="status-line" hidden></div>
       <div id="error" class="error-box" hidden></div>
 
