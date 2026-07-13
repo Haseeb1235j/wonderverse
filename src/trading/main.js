@@ -1,8 +1,16 @@
-// Signal Desk — UI controller.
-import { analyzeChart, describeError } from './analyst.js';
+// Signal Desk — UI controller. Two modes:
+//  - Live Signal (default, free): live Binance data + rule-based TA engine.
+//  - Screenshot AI (advanced): Claude vision analysis, needs an API key.
+import { analyzeLive } from './engine.js';
 import './trading.css';
 
 const els = {
+  tabLive: document.getElementById('tab-live'),
+  tabAi: document.getElementById('tab-ai'),
+  liveMode: document.getElementById('live-mode'),
+  aiMode: document.getElementById('ai-mode'),
+  symbolInput: document.getElementById('symbol-input'),
+  tfSelect: document.getElementById('tf-select'),
   keyInput: document.getElementById('api-key'),
   keySave: document.getElementById('save-key'),
   keyStatus: document.getElementById('key-status'),
@@ -20,17 +28,33 @@ const els = {
 };
 
 const KEY_STORAGE = 'signal-desk-api-key';
+let mode = 'live';
 let image = null; // { base64, mediaType }
 
-// ---------------- API key handling ----------------
+// ---------------- mode tabs ----------------
+function setMode(next) {
+  mode = next;
+  const live = mode === 'live';
+  els.tabLive.classList.toggle('active', live);
+  els.tabAi.classList.toggle('active', !live);
+  els.tabLive.setAttribute('aria-selected', String(live));
+  els.tabAi.setAttribute('aria-selected', String(!live));
+  els.liveMode.hidden = !live;
+  els.aiMode.hidden = live;
+  clearError();
+  updateAnalyzeState();
+}
+els.tabLive.addEventListener('click', () => setMode('live'));
+els.tabAi.addEventListener('click', () => setMode('ai'));
+
+// ---------------- API key handling (AI mode) ----------------
 function loadKey() {
   const key = localStorage.getItem(KEY_STORAGE) || '';
   els.keyInput.value = key;
   updateKeyStatus(key);
-  return key;
 }
 function updateKeyStatus(key) {
-  els.keyStatus.textContent = key ? 'Key saved on this device' : 'No key saved — analysis needs your Anthropic API key';
+  els.keyStatus.textContent = key ? 'Key saved on this device' : 'No key saved — this mode needs an Anthropic API key (the Live Signal tab is free)';
   els.keyStatus.classList.toggle('ok', Boolean(key));
 }
 els.keySave.addEventListener('click', () => {
@@ -45,7 +69,7 @@ els.keyToggle.addEventListener('click', () => {
   els.keyToggle.textContent = hidden ? 'Hide' : 'Show';
 });
 
-// ---------------- Image intake (click / drag / paste) ----------------
+// ---------------- Image intake (AI mode) ----------------
 const ACCEPTED = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
 
 function setImageFromFile(file) {
@@ -80,6 +104,7 @@ els.fileInput.addEventListener('change', () => setImageFromFile(els.fileInput.fi
 els.dropZone.addEventListener('drop', (e) => setImageFromFile(e.dataTransfer.files[0]));
 
 document.addEventListener('paste', (e) => {
+  if (mode !== 'ai') return;
   const item = [...(e.clipboardData?.items || [])].find((i) => i.type.startsWith('image/'));
   if (item) setImageFromFile(item.getAsFile());
 });
@@ -95,8 +120,12 @@ els.clearImage.addEventListener('click', (e) => {
 });
 
 function updateAnalyzeState() {
-  els.analyzeBtn.disabled = !image;
+  els.analyzeBtn.disabled = mode === 'ai' ? !image : !els.symbolInput.value.trim();
 }
+els.symbolInput.addEventListener('input', updateAnalyzeState);
+els.symbolInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !els.analyzeBtn.disabled) els.analyzeBtn.click();
+});
 
 // ---------------- Status / errors ----------------
 function showStatus(text) {
@@ -113,32 +142,45 @@ function clearError() {
 
 // ---------------- Analysis ----------------
 els.analyzeBtn.addEventListener('click', async () => {
-  const apiKey = els.keyInput.value.trim() || localStorage.getItem(KEY_STORAGE);
-  if (!apiKey) {
-    showError('Add your Anthropic API key in Settings first (get one at console.anthropic.com).');
-    return;
-  }
-  if (!image) return;
-
   clearError();
   els.results.hidden = true;
   els.results.innerHTML = '';
   els.analyzeBtn.disabled = true;
   els.analyzeBtn.classList.add('working');
-  showStatus('Sending the chart to the desk…');
 
   try {
-    const analysis = await analyzeChart({
-      apiKey,
-      imageBase64: image.base64,
-      mediaType: image.mediaType,
-      context: els.context.value,
-      onStatus: showStatus,
-    });
+    let analysis;
+    if (mode === 'live') {
+      showStatus('Pulling live market data…');
+      analysis = await analyzeLive(els.symbolInput.value, els.tfSelect.value);
+    } else {
+      const apiKey = els.keyInput.value.trim() || localStorage.getItem(KEY_STORAGE);
+      if (!apiKey) {
+        showError('This mode needs an Anthropic API key — or switch to the free Live Signal tab.');
+        return;
+      }
+      if (!image) return;
+      showStatus('Sending the chart to the desk…');
+      // Lazy-load the AI module so the free mode never pays its weight.
+      const { analyzeChart, describeError } = await import('./analyst.js');
+      try {
+        analysis = await analyzeChart({
+          apiKey,
+          imageBase64: image.base64,
+          mediaType: image.mediaType,
+          context: els.context.value,
+          onStatus: showStatus,
+        });
+      } catch (err) {
+        console.error(err);
+        showError(describeError(err));
+        return;
+      }
+    }
     renderResults(analysis);
   } catch (err) {
     console.error(err);
-    showError(describeError(err));
+    showError(err?.message || 'Something went wrong. Please try again.');
   } finally {
     showStatus('');
     els.analyzeBtn.classList.remove('working');
@@ -182,16 +224,20 @@ function renderResults(a) {
       <p>The desk is sitting this one out. Cash is a position — wait for the setup described below.</p>
     </section>`;
 
+  const livePrice = a.live_price != null
+    ? `<div class="live-price">Live price: <strong>${esc(String(a.live_price >= 1000 ? a.live_price.toLocaleString('en-US', { maximumFractionDigits: 0 }) : a.live_price))}</strong></div>` : '';
+
   els.results.innerHTML = `
     <section class="verdict-banner ${vClass}">
       <div class="verdict-main">
         <span class="verdict-word">${esc(verdict)}</span>
         <span class="verdict-asset">${esc(a.asset)} · ${esc(a.timeframe)}</span>
+        ${livePrice}
       </div>
       <div class="confidence">
         <div class="confidence-label">Confidence <strong>${conf}%</strong></div>
         <div class="confidence-track"><div class="confidence-fill" style="width:${conf}%"></div></div>
-        <div class="chart-quality">Chart quality: ${esc(a.chart_quality)}</div>
+        <div class="chart-quality">Data quality: ${esc(a.chart_quality)}</div>
       </div>
     </section>
 
@@ -234,11 +280,11 @@ function renderResults(a) {
     <section class="card split-card">
       <div>
         <h3 class="for">Confluences (${(a.confluences || []).length})</h3>
-        <ul>${(a.confluences || []).map((c) => `<li>${esc(c)}</li>`).join('')}</ul>
+        <ul>${(a.confluences || []).map((c) => `<li>${esc(c)}</li>`).join('') || '<li>—</li>'}</ul>
       </div>
       <div>
         <h3 class="against">Risks &amp; Counter-case</h3>
-        <ul>${(a.risks || []).map((r) => `<li>${esc(r)}</li>`).join('')}</ul>
+        <ul>${(a.risks || []).map((r) => `<li>${esc(r)}</li>`).join('') || '<li>—</li>'}</ul>
       </div>
     </section>
 
@@ -254,7 +300,7 @@ function renderResults(a) {
       ${esc(a.verdict_reasoning).split('\n').filter(Boolean).map((p) => `<p>${p}</p>`).join('')}
     </section>
 
-    <p class="disclaimer">Educational analysis of a single chart screenshot — not financial advice. No signal system is 100% accurate; markets carry risk of loss. Always use the stop-loss and never risk more than 1–2% of your account per trade.</p>
+    <p class="disclaimer">Educational analysis — not financial advice. No signal system is 100% accurate; markets carry risk of loss. Always use the stop-loss and never risk more than 1–2% of your account per trade.</p>
   `;
   els.results.hidden = false;
   els.results.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -262,4 +308,4 @@ function renderResults(a) {
 
 // ---------------- Init ----------------
 loadKey();
-updateAnalyzeState();
+setMode('live');

@@ -51,6 +51,56 @@ body.signal-desk {
 }
 .desk-header p { color: var(--text-dim); font-size: 0.95rem; }
 
+/* Mode tabs */
+.mode-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.mode-tab {
+  flex: 1;
+  padding: 12px 10px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text-dim);
+  font-size: 0.92rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.mode-tab:hover { border-color: var(--accent); }
+.mode-tab.active { color: var(--text); border-color: var(--accent); background: rgba(76, 194, 255, 0.07); }
+.free-badge, .adv-badge {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  vertical-align: middle;
+}
+.free-badge { background: rgba(34,197,94,0.15); color: var(--buy); border: 1px solid rgba(34,197,94,0.5); }
+.adv-badge { background: rgba(245,158,11,0.12); color: var(--hold); border: 1px solid rgba(245,158,11,0.4); }
+
+/* Live mode inputs */
+.live-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.live-row input, .live-row select {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 12px;
+  font-size: 1rem;
+  font-family: var(--mono);
+}
+.live-row input { flex: 2; min-width: 180px; text-transform: uppercase; }
+.live-row select { flex: 1; min-width: 120px; }
+.live-row input:focus, .live-row select:focus { outline: none; border-color: var(--accent); }
+.live-hint { margin-top: 8px; font-size: 0.8rem; color: var(--text-dim); }
+.live-price { margin-top: 6px; font-family: var(--mono); font-size: 0.85rem; color: var(--text-dim); }
+.live-price strong { color: var(--text); }
+
 /* Panels */
 .panel {
   background: var(--bg-panel);
