@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Signal Desk — BUY / SELL / HOLD Analyst</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📈</text></svg>" />
-    <script type="module" crossorigin src="./assets/trading-CwvdUDnK.js"></script>
+    <script type="module" crossorigin src="./assets/trading-DptBukBn.js"></script>
     <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-Dezn_h7o.js">
-    <link rel="stylesheet" crossorigin href="./assets/trading-C9BjwqP-.css">
+    <link rel="stylesheet" crossorigin href="./assets/trading-DYaBGtfF.css">
   </head>
   <body class="signal-desk">
     <div class="desk-wrap">
@@ -60,6 +60,14 @@
             </select>
           </div>
           <div class="live-hint">Live data for <strong>any crypto pair, all major forex pairs, gold &amp; silver</strong> — no account, no key, nothing to buy. Try BTC, ETHUSDT, EURUSD, GBPJPY, or GOLD.</div>
+        </section>
+
+        <section class="panel">
+          <h2>Or · Scan the whole market for ready trades</h2>
+          <button id="scan-btn" class="scan-btn" type="button">🔎 FIND READY TRADES</button>
+          <label class="scan-fx-row"><input type="checkbox" id="scan-fx" checked /> include forex &amp; gold (a bit slower)</label>
+          <div id="scan-status" class="scan-status" hidden></div>
+          <div id="scan-results" class="scan-results" hidden></div>
         </section>
       </div>
 
