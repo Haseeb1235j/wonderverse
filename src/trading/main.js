@@ -1,7 +1,7 @@
 // Signal Desk — UI controller. Two modes:
 //  - Live Signal (default, free): live market data + rule-based TA engine.
 //  - Screenshot AI (advanced): Claude vision analysis, needs an API key.
-import { analyzeLive, fetchLivePrice } from './engine.js';
+import { analyzeLive, fetchLivePrice, scanMarkets } from './engine.js';
 import './trading.css';
 
 const els = {
@@ -25,6 +25,10 @@ const els = {
   status: document.getElementById('status'),
   error: document.getElementById('error'),
   results: document.getElementById('results'),
+  scanBtn: document.getElementById('scan-btn'),
+  scanFx: document.getElementById('scan-fx'),
+  scanStatus: document.getElementById('scan-status'),
+  scanResults: document.getElementById('scan-results'),
   notice: document.getElementById('desk-notice'),
   noticeOk: document.getElementById('notice-ok'),
   noticeSkip: document.getElementById('notice-skip'),
@@ -194,6 +198,101 @@ els.analyzeBtn.addEventListener('click', async () => {
     updateAnalyzeState();
   }
 });
+
+// ---------------- Market scanner ----------------
+els.scanBtn.addEventListener('click', async () => {
+  clearError();
+  els.scanBtn.disabled = true;
+  els.scanResults.hidden = true;
+  els.scanResults.innerHTML = '';
+  els.scanStatus.hidden = false;
+
+  try {
+    const interval = els.tfSelect.value;
+    const scan = await scanMarkets(interval, {
+      includeFx: els.scanFx.checked,
+      onProgress: (done, total) => {
+        els.scanStatus.textContent = `Scanning ${total} markets on the ${interval}… ${done}/${total}`;
+      },
+    });
+    renderScan(scan, interval);
+  } catch (err) {
+    console.error(err);
+    showError(err?.message || 'Scan failed. Please try again.');
+  } finally {
+    els.scanStatus.hidden = true;
+    els.scanBtn.disabled = false;
+  }
+});
+
+// Clicking a scan card loads the full analysis for that market.
+els.scanResults.addEventListener('click', (e) => {
+  const card = e.target.closest('[data-symbol]');
+  if (!card) return;
+  els.symbolInput.value = card.dataset.symbol;
+  updateAnalyzeState();
+  els.analyzeBtn.click();
+});
+
+function scanCard(a) {
+  const p = a.trade_plan;
+  const vClass = a.verdict.toLowerCase();
+  return `
+    <button type="button" class="scan-card ${vClass}" data-symbol="${esc(a.asset)}">
+      <div class="scan-card-head">
+        <span class="scan-verdict ${vClass}">${esc(a.verdict)}</span>
+        <span class="scan-symbol">${esc(a.asset)}</span>
+        <span class="scan-conf">${esc(a.confidence)}%</span>
+      </div>
+      <div class="scan-price">Price ${fmtPrice(a.live_price)}</div>
+      <div class="scan-plan">
+        <span>Entry <strong>${esc(String(p.entry).split(' ')[0].replace('~', ''))}</strong></span>
+        <span>Stop <strong>${esc(String(p.stop_loss).split(' ')[0])}</strong></span>
+        <span>TP1 <strong>${esc(String(p.take_profit_1).split(' ')[0])}</strong></span>
+        <span>R:R <strong>${esc(String(p.risk_reward).split(' to')[0].replace(/\s/g, ''))}</strong></span>
+      </div>
+      <div class="scan-open">Tap for the full analysis →</div>
+    </button>`;
+}
+
+function nearCard(n) {
+  const a = n.analysis, w = n.plan;
+  const sClass = w.side.toLowerCase();
+  return `
+    <button type="button" class="scan-card near ${sClass}" data-symbol="${esc(a.asset)}">
+      <div class="scan-card-head">
+        <span class="scan-verdict watch ${sClass}">WATCH · ${esc(w.side)}</span>
+        <span class="scan-symbol">${esc(a.asset)}</span>
+        <span class="scan-conf">${n.distancePct.toFixed(1)}% away</span>
+      </div>
+      <div class="scan-trigger">${esc(w.trigger)}</div>
+      <div class="scan-plan">
+        <span>Entry <strong>${esc(w.entry)}</strong></span>
+        <span>Stop <strong>${esc(String(w.stop_loss).split(' ')[0])}</strong></span>
+        <span>TP1 <strong>${esc(w.take_profit_1)}</strong></span>
+        <span>R:R <strong>${esc(String(w.risk_reward).replace(/\s/g, ''))}</strong></span>
+      </div>
+      <div class="scan-open">Tap for the full analysis →</div>
+    </button>`;
+}
+
+function renderScan(scan, interval) {
+  const readyHtml = scan.ready.length
+    ? `<h4 class="scan-section">✅ Ready now — ${scan.ready.length} setup${scan.ready.length > 1 ? 's' : ''} pass every filter</h4>
+       <div class="scan-grid">${scan.ready.map(scanCard).join('')}</div>`
+    : `<div class="scan-empty">No A+ setups across ${scan.scanned} markets on the ${interval} right now — and that's the honest answer, not a glitch. Forcing trades when the market offers none is how accounts die. The closest setups are below; set alerts at their trigger levels.</div>`;
+
+  const nearHtml = scan.near.length
+    ? `<h4 class="scan-section">⏳ Almost ready — closest to triggering</h4>
+       <div class="scan-grid">${scan.near.slice(0, 6).map(nearCard).join('')}</div>`
+    : '';
+
+  const failNote = scan.scanned < scan.total
+    ? `<p class="scan-note">${scan.total - scan.scanned} market${scan.total - scan.scanned > 1 ? 's' : ''} could not be reached and ${scan.total - scan.scanned > 1 ? 'were' : 'was'} skipped.</p>` : '';
+
+  els.scanResults.innerHTML = readyHtml + nearHtml + failNote;
+  els.scanResults.hidden = false;
+}
 
 // ---------------- Live price refresh ----------------
 function stopPriceLoop() {

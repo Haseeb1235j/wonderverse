@@ -86,6 +86,13 @@ export function normalizeSymbol(input) {
 }
 
 // ---------------- data layer ----------------
+// fetch with a hard timeout so one dead host/relay can't stall a scan.
+function fetchT(url, ms = 10000) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), ms);
+  return fetch(url, { signal: ctrl.signal }).finally(() => clearTimeout(timer));
+}
+
 async function fetchBinance(symbol, interval, limit = 400) {
   let lastErr;
   for (const host of BINANCE_HOSTS) {
@@ -94,8 +101,8 @@ async function fetchBinance(symbol, interval, limit = 400) {
       // forming candle, and the ticker stamps it with the latest trade so
       // the analysis runs on to-the-second data.
       const [klRes, tkRes] = await Promise.all([
-        fetch(`${host}/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`),
-        fetch(`${host}/api/v3/ticker/price?symbol=${symbol}`).catch(() => null),
+        fetchT(`${host}/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`, 8000),
+        fetchT(`${host}/api/v3/ticker/price?symbol=${symbol}`, 8000).catch(() => null),
       ]);
       if (klRes.status === 400) throw Object.assign(new Error('not-listed'), { notListed: true });
       if (!klRes.ok) throw new Error(`Market data request failed (${klRes.status})`);
@@ -166,7 +173,7 @@ async function fetchYahoo(symbols, interval) {
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=${cfg.interval}&range=${cfg.range}&includePrePost=false&cb=${Date.now()}`;
     for (const relay of CORS_RELAYS) {
       try {
-        const res = await fetch(relay(url));
+        const res = await fetchT(relay(url), 12000);
         if (!res.ok) throw new Error(`relay ${res.status}`);
         const data = await res.json();
         const result = data?.chart?.result?.[0];
@@ -224,7 +231,7 @@ export async function fetchLivePrice(instr) {
   if (instr.market === 'crypto' && instr.binance) {
     for (const host of BINANCE_HOSTS) {
       try {
-        const res = await fetch(`${host}/api/v3/ticker/price?symbol=${instr.binance}`);
+        const res = await fetchT(`${host}/api/v3/ticker/price?symbol=${instr.binance}`, 6000);
         if (!res.ok) continue;
         const p = +(await res.json()).price;
         if (isFinite(p) && p > 0) return p;
@@ -358,6 +365,69 @@ export async function analyzeLive(symbolInput, interval) {
   analysis.as_of = Date.now();
   analysis.instrument = instr;
   return analysis;
+}
+
+// ---------------- market scanner ----------------
+// The scanner sweeps a watchlist with the exact same engine and discipline
+// as a single analysis — it never loosens the rules to manufacture signals.
+export const SCAN_CRYPTO = [
+  'BTC', 'ETH', 'BNB', 'SOL', 'XRP', 'DOGE', 'ADA', 'AVAX', 'LINK', 'DOT',
+  'LTC', 'TRX', 'ATOM', 'UNI', 'NEAR', 'APT', 'ARB', 'OP', 'SUI', 'PEPE',
+  'SHIB', 'TON', 'BCH', 'FIL',
+];
+export const SCAN_FX = [
+  'EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'USDCHF', 'NZDUSD',
+  'GBPJPY', 'EURJPY', 'XAUUSD',
+];
+
+async function pool(items, worker, size) {
+  const queue = items.map((item, i) => [i, item]);
+  const out = new Array(items.length);
+  await Promise.all(Array.from({ length: Math.min(size, items.length) }, async () => {
+    while (queue.length) {
+      const [i, item] = queue.shift();
+      out[i] = await worker(item);
+    }
+  }));
+  return out;
+}
+
+const parsePrice = (s) => parseFloat(String(s).replace(/,/g, ''));
+
+export async function scanMarkets(interval, { includeFx = true, onProgress } = {}) {
+  const targets = [...SCAN_CRYPTO, ...(includeFx ? SCAN_FX : [])];
+  let done = 0;
+  const settled = await pool(targets, async (sym) => {
+    try {
+      return await analyzeLive(sym, interval);
+    } catch {
+      return null; // one dead market must not sink the scan
+    } finally {
+      done += 1;
+      onProgress?.(done, targets.length);
+    }
+  }, 8);
+
+  const analyses = settled.filter(Boolean);
+  const ready = analyses
+    .filter((a) => a.verdict !== 'HOLD' && a.trade_plan)
+    .sort((x, y) => y.confidence - x.confidence);
+
+  // "Almost ready": HOLDs whose nearest watch trigger sits close to the
+  // current price, ranked by how close the trigger is (in %).
+  const near = analyses
+    .filter((a) => a.verdict === 'HOLD' && (a.watch_plan || []).length && a.live_price > 0)
+    .map((a) => {
+      const best = a.watch_plan
+        .map((w) => ({ w, dist: Math.abs(parsePrice(w.entry) - a.live_price) / a.live_price * 100 }))
+        .filter((x) => isFinite(x.dist))
+        .sort((x, y) => x.dist - y.dist)[0];
+      return best ? { analysis: a, plan: best.w, distancePct: best.dist } : null;
+    })
+    .filter(Boolean)
+    .sort((x, y) => x.distancePct - y.distancePct);
+
+  return { ready, near, scanned: analyses.length, total: targets.length };
 }
 
 export function buildAnalysis(symbol, interval, candles) {
