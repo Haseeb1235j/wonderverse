@@ -356,11 +356,11 @@ export function fmt(price) {
 }
 
 // ---------------- the analysis ----------------
-export async function analyzeLive(symbolInput, interval) {
+export async function analyzeLive(symbolInput, interval, { minRR = 2 } = {}) {
   const instr = resolveInstrument(symbolInput);
   if (!instr) throw new Error('Enter a symbol — e.g. BTC, ETHUSDT, EURUSD, GBPJPY, GOLD.');
   const { candles, source } = await fetchCandles(instr, interval);
-  const analysis = buildAnalysis(instr.display, interval, candles);
+  const analysis = buildAnalysis(instr.display, interval, candles, { minRR });
   analysis.source = source;
   analysis.as_of = Date.now();
   analysis.instrument = instr;
@@ -394,12 +394,12 @@ async function pool(items, worker, size) {
 
 const parsePrice = (s) => parseFloat(String(s).replace(/,/g, ''));
 
-export async function scanMarkets(interval, { includeFx = true, onProgress } = {}) {
+export async function scanMarkets(interval, { includeFx = true, onProgress, minRR = 2 } = {}) {
   const targets = [...SCAN_CRYPTO, ...(includeFx ? SCAN_FX : [])];
   let done = 0;
   const settled = await pool(targets, async (sym) => {
     try {
-      return await analyzeLive(sym, interval);
+      return await analyzeLive(sym, interval, { minRR });
     } catch {
       return null; // one dead market must not sink the scan
     } finally {
@@ -430,7 +430,10 @@ export async function scanMarkets(interval, { includeFx = true, onProgress } = {
   return { ready, near, scanned: analyses.length, total: targets.length };
 }
 
-export function buildAnalysis(symbol, interval, candles) {
+// minRR is the user's minimum risk-to-reward: 2 means only 1:2 or better
+// setups are allowed, 3 means 1:3+, and so on. R:R is always shown in the
+// trader-standard "1 : X" (risk : reward) notation.
+export function buildAnalysis(symbol, interval, candles, { minRR = 2 } = {}) {
   const closes = candles.map((c) => c.close);
   const vols = candles.map((c) => c.volume);
   const n = candles.length - 1;
@@ -529,7 +532,7 @@ export function buildAnalysis(symbol, interval, candles) {
   if (score >= 3 && bullFactors >= 3 && structureTrend !== 'downtrend' && !nearResistance) verdict = 'BUY';
   else if (score <= -3 && bearFactors >= 3 && structureTrend !== 'uptrend' && !nearSupport) verdict = 'SELL';
 
-  // ---- trade plan with strict 2:1 reward-to-risk ----
+  // ---- trade plan gated by the user's minimum risk-to-reward (1:minRR) ----
   let tradePlan = null;
   let rrNote = '';
   if (verdict === 'BUY') {
@@ -538,56 +541,59 @@ export function buildAnalysis(symbol, interval, candles) {
     const supUsable = nearestSup && (price - nearestSup.price) <= 3 * a;
     const stop = supUsable ? nearestSup.price - 0.5 * a : price - 1.5 * a;
     const risk = price - stop;
-    const tp1 = nearestRes ? nearestRes.price : price + Math.max(3 * a, 2.2 * risk);
+    const tp1 = nearestRes ? nearestRes.price : price + Math.max(3 * a, (minRR + 0.2) * risk);
     const tp2 = resistanceZones.slice().sort((x, y) => x.price - y.price)[1]?.price ?? tp1 + 2 * a;
     const rr = (tp1 - price) / risk;
-    if (rr >= 2) {
+    if (rr >= minRR) {
       tradePlan = {
         entry: `~${fmt(price)} (current price) or on a pullback toward ${nearestSup ? fmt(nearestSup.price) : 'support'}`,
         stop_loss: `${fmt(stop)} — ${supUsable ? 'below the nearest support zone minus half an ATR' : '1.5×ATR swing stop below entry'}`,
         take_profit_1: `${fmt(tp1)} — nearest resistance zone`,
         take_profit_2: `${fmt(tp2)} — next resistance / measured extension`,
-        risk_reward: `${rr.toFixed(1)} : 1 to TP1`,
+        risk_reward: `1 : ${rr.toFixed(1)} to TP1`,
+        rr,
         position_note: 'Risk no more than 1–2% of your account between entry and stop. Take partial profit at TP1 and move the stop to break-even.',
       };
     } else {
       verdict = 'HOLD';
-      rrNote = `A long setup exists but reward-to-risk to the nearest resistance is only ${rr.toFixed(1)}:1 — below the 2:1 minimum. Wait for a pullback toward ${nearestSup ? fmt(nearestSup.price) : 'support'} to improve the entry.`;
+      rrNote = `A long setup exists but risk-to-reward to the nearest resistance is only 1:${rr.toFixed(1)} — below your 1:${minRR} minimum. Wait for a pullback toward ${nearestSup ? fmt(nearestSup.price) : 'support'} to improve the entry.`;
     }
   } else if (verdict === 'SELL') {
     const resUsable = nearestRes && (nearestRes.price - price) <= 3 * a;
     const stop = resUsable ? nearestRes.price + 0.5 * a : price + 1.5 * a;
     const risk = stop - price;
-    const tp1 = nearestSup ? nearestSup.price : price - Math.max(3 * a, 2.2 * risk);
+    const tp1 = nearestSup ? nearestSup.price : price - Math.max(3 * a, (minRR + 0.2) * risk);
     const tp2 = supportZones.slice().sort((x, y) => y.price - x.price)[1]?.price ?? tp1 - 2 * a;
     const rr = (price - tp1) / risk;
-    if (rr >= 2) {
+    if (rr >= minRR) {
       tradePlan = {
         entry: `~${fmt(price)} (current price) or on a bounce toward ${nearestRes ? fmt(nearestRes.price) : 'resistance'}`,
         stop_loss: `${fmt(stop)} — ${resUsable ? 'above the nearest resistance zone plus half an ATR' : '1.5×ATR swing stop above entry'}`,
         take_profit_1: `${fmt(tp1)} — nearest support zone`,
         take_profit_2: `${fmt(tp2)} — next support / measured extension`,
-        risk_reward: `${rr.toFixed(1)} : 1 to TP1`,
+        risk_reward: `1 : ${rr.toFixed(1)} to TP1`,
+        rr,
         position_note: 'Risk no more than 1–2% of your account between entry and stop. Take partial profit at TP1 and move the stop to break-even.',
       };
     } else {
       verdict = 'HOLD';
-      rrNote = `A short setup exists but reward-to-risk to the nearest support is only ${rr.toFixed(1)}:1 — below the 2:1 minimum. Wait for a bounce toward ${nearestRes ? fmt(nearestRes.price) : 'resistance'} to improve the entry.`;
+      rrNote = `A short setup exists but risk-to-reward to the nearest support is only 1:${rr.toFixed(1)} — below your 1:${minRR} minimum. Wait for a bounce toward ${nearestRes ? fmt(nearestRes.price) : 'resistance'} to improve the entry.`;
     }
   }
 
   // ---- HOLD watch plan: the exact conditions that would turn this into a
-  // trade, each with its own stop and 2:1-minimum targets, so "HOLD" always
-  // answers "then when DO I buy or sell?" ----
+  // trade, each with its own stop and 1:minRR-minimum targets, so "HOLD"
+  // always answers "then when DO I buy or sell?" ----
   const watchPlans = [];
+  const tpFactor = minRR + 0.2; // measured target just past the minimum
   if (verdict === 'HOLD') {
     if (nearestRes) {
       const entry = nearestRes.price + 0.25 * a;
       const stop = nearestRes.price - a;
       const risk = entry - stop;
       const nextRes = resistanceZones.slice().sort((x, y) => x.price - y.price)[1]?.price;
-      const tp1 = nextRes && nextRes >= entry + 2 * risk ? nextRes : entry + 2.2 * risk;
-      const tp2 = Math.max(entry + 3.5 * risk, nextRes ?? 0);
+      const tp1 = nextRes && nextRes >= entry + minRR * risk ? nextRes : entry + tpFactor * risk;
+      const tp2 = Math.max(entry + (minRR + 1.5) * risk, nextRes ?? 0);
       watchPlans.push({
         side: 'BUY',
         trigger: `Candle CLOSES above resistance ${fmt(nearestRes.price)} with above-average volume`,
@@ -595,7 +601,8 @@ export function buildAnalysis(symbol, interval, candles) {
         stop_loss: `${fmt(stop)} (back inside the broken level = failed breakout)`,
         take_profit_1: fmt(tp1),
         take_profit_2: fmt(tp2),
-        risk_reward: `${((tp1 - entry) / risk).toFixed(1)} : 1`,
+        risk_reward: `1 : ${((tp1 - entry) / risk).toFixed(1)}`,
+        rr: (tp1 - entry) / risk,
         note: 'Do not chase a wick through the level — wait for the candle close.',
       });
     }
@@ -604,8 +611,8 @@ export function buildAnalysis(symbol, interval, candles) {
       const stop = nearestSup.price + a;
       const risk = stop - entry;
       const nextSup = supportZones.slice().sort((x, y) => y.price - x.price)[1]?.price;
-      const tp1 = nextSup && nextSup <= entry - 2 * risk ? nextSup : entry - 2.2 * risk;
-      const tp2 = Math.min(entry - 3.5 * risk, nextSup ?? Infinity);
+      const tp1 = nextSup && nextSup <= entry - minRR * risk ? nextSup : entry - tpFactor * risk;
+      const tp2 = Math.min(entry - (minRR + 1.5) * risk, nextSup ?? Infinity);
       watchPlans.push({
         side: 'SELL',
         trigger: `Candle CLOSES below support ${fmt(nearestSup.price)} with above-average volume`,
@@ -613,7 +620,8 @@ export function buildAnalysis(symbol, interval, candles) {
         stop_loss: `${fmt(stop)} (back above the broken level = failed breakdown)`,
         take_profit_1: fmt(tp1),
         take_profit_2: fmt(tp2),
-        risk_reward: `${((entry - tp1) / risk).toFixed(1)} : 1`,
+        risk_reward: `1 : ${((entry - tp1) / risk).toFixed(1)}`,
+        rr: (entry - tp1) / risk,
         note: 'Do not chase a wick through the level — wait for the candle close.',
       });
     }
@@ -624,15 +632,16 @@ export function buildAnalysis(symbol, interval, candles) {
       const stop = nearestSup.price - 0.75 * a;
       const risk = entry - stop;
       const tp1 = nearestRes.price;
-      if ((tp1 - entry) / risk >= 2) {
+      if ((tp1 - entry) / risk >= minRR) {
         watchPlans.unshift({
           side: 'BUY',
           trigger: `Pullback into support ${fmt(nearestSup.price)} that holds (bullish rejection candle)`,
           entry: fmt(entry),
           stop_loss: `${fmt(stop)} (below the support zone)`,
           take_profit_1: fmt(tp1),
-          take_profit_2: fmt(Math.max(tp1 + 2 * a, entry + 3.5 * risk)),
-          risk_reward: `${((tp1 - entry) / risk).toFixed(1)} : 1`,
+          take_profit_2: fmt(Math.max(tp1 + 2 * a, entry + (minRR + 1.5) * risk)),
+          risk_reward: `1 : ${((tp1 - entry) / risk).toFixed(1)}`,
+          rr: (tp1 - entry) / risk,
           note: 'With-trend entry — the higher-probability setup in an uptrend.',
         });
       }
@@ -641,15 +650,16 @@ export function buildAnalysis(symbol, interval, candles) {
       const stop = nearestRes.price + 0.75 * a;
       const risk = stop - entry;
       const tp1 = nearestSup.price;
-      if ((entry - tp1) / risk >= 2) {
+      if ((entry - tp1) / risk >= minRR) {
         watchPlans.unshift({
           side: 'SELL',
           trigger: `Bounce into resistance ${fmt(nearestRes.price)} that stalls (bearish rejection candle)`,
           entry: fmt(entry),
           stop_loss: `${fmt(stop)} (above the resistance zone)`,
           take_profit_1: fmt(tp1),
-          take_profit_2: fmt(Math.min(tp1 - 2 * a, entry - 3.5 * risk)),
-          risk_reward: `${((entry - tp1) / risk).toFixed(1)} : 1`,
+          take_profit_2: fmt(Math.min(tp1 - 2 * a, entry - (minRR + 1.5) * risk)),
+          risk_reward: `1 : ${((entry - tp1) / risk).toFixed(1)}`,
+          rr: (entry - tp1) / risk,
           note: 'With-trend entry — the higher-probability setup in a downtrend.',
         });
       }

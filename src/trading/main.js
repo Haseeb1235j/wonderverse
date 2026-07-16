@@ -11,6 +11,7 @@ const els = {
   aiMode: document.getElementById('ai-mode'),
   symbolInput: document.getElementById('symbol-input'),
   tfSelect: document.getElementById('tf-select'),
+  rrSelect: document.getElementById('rr-select'),
   keyInput: document.getElementById('api-key'),
   keySave: document.getElementById('save-key'),
   keyStatus: document.getElementById('key-status'),
@@ -162,7 +163,7 @@ els.analyzeBtn.addEventListener('click', async () => {
     let analysis;
     if (mode === 'live') {
       showStatus('Pulling live market data…');
-      analysis = await analyzeLive(els.symbolInput.value, els.tfSelect.value);
+      analysis = await analyzeLive(els.symbolInput.value, els.tfSelect.value, { minRR: Number(els.rrSelect.value) || 2 });
     } else {
       const apiKey = els.keyInput.value.trim() || localStorage.getItem(KEY_STORAGE);
       if (!apiKey) {
@@ -210,6 +211,7 @@ els.scanBtn.addEventListener('click', async () => {
   try {
     const interval = els.tfSelect.value;
     const scan = await scanMarkets(interval, {
+      minRR: Number(els.rrSelect.value) || 2,
       includeFx: els.scanFx.checked,
       onProgress: (done, total) => {
         els.scanStatus.textContent = `Scanning ${total} markets on the ${interval}… ${done}/${total}`;
@@ -352,7 +354,7 @@ function planGrid(p) {
       <div class="plan-item stop"><span class="plan-label">Stop-Loss</span><span class="plan-value">${esc(p.stop_loss)}</span></div>
       <div class="plan-item tp"><span class="plan-label">Target 1</span><span class="plan-value">${esc(p.take_profit_1)}</span></div>
       <div class="plan-item tp"><span class="plan-label">Target 2</span><span class="plan-value">${esc(p.take_profit_2)}</span></div>
-      <div class="plan-item rr"><span class="plan-label">Reward : Risk</span><span class="plan-value">${esc(p.risk_reward)}</span></div>
+      <div class="plan-item rr"><span class="plan-label">Risk : Reward</span><span class="plan-value">${esc(p.risk_reward)}</span></div>
     </div>`;
 }
 
