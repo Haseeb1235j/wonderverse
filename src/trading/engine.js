@@ -146,6 +146,7 @@ const YAHOO_INTERVALS = {
   '4h': { interval: '60m', range: '180d', bucket: 4 * 3600 * 1000 },
   '1d': { interval: '1d', range: '2y' },
   '1w': { interval: '1wk', range: '10y' },
+  '1M': { interval: '1mo', range: '20y' },
 };
 
 function aggregate(candles, bucketMs) {
@@ -347,6 +348,84 @@ function levelZones(points, tolerance) {
   return zones.sort((a, b) => b.touches - a.touches || b.lastIndex - a.lastIndex);
 }
 
+// ---- the "think like an analyst" layer ----
+
+// Momentum divergence at the last two confirmed swings: price making a new
+// extreme that momentum refuses to confirm is one of the strongest early
+// warnings a trend is tiring.
+function findDivergence(rsiArr, highs, lows) {
+  const h = highs.slice(-2), l = lows.slice(-2);
+  if (h.length === 2 && rsiArr[h[0].i] != null && rsiArr[h[1].i] != null
+    && h[1].price > h[0].price && rsiArr[h[1].i] < rsiArr[h[0].i] - 1) {
+    return {
+      bias: 'bearish',
+      reading: `Bearish divergence — price printed a higher high but RSI fell from ${rsiArr[h[0].i].toFixed(1)} to ${rsiArr[h[1].i].toFixed(1)}: momentum is not confirming the rally.`,
+    };
+  }
+  if (l.length === 2 && rsiArr[l[0].i] != null && rsiArr[l[1].i] != null
+    && l[1].price < l[0].price && rsiArr[l[1].i] > rsiArr[l[0].i] + 1) {
+    return {
+      bias: 'bullish',
+      reading: `Bullish divergence — price printed a lower low but RSI rose from ${rsiArr[l[0].i].toFixed(1)} to ${rsiArr[l[1].i].toFixed(1)}: selling pressure is drying up.`,
+    };
+  }
+  return null;
+}
+
+// Read the last completed candle pair the way a discretionary trader would.
+function readCandles(candles, n) {
+  const c = candles[n], p = candles[n - 1];
+  if (!c || !p) return null;
+  const body = Math.abs(c.close - c.open);
+  const range = c.high - c.low || 1e-9;
+  const pBody = Math.abs(p.close - p.open);
+  const upperWick = c.high - Math.max(c.open, c.close);
+  const lowerWick = Math.min(c.open, c.close) - c.low;
+  if (c.close > c.open && p.close < p.open && c.close >= p.open && c.open <= p.close && body > pBody) {
+    return { bias: 'bullish', reading: 'Bullish engulfing candle — buyers absorbed the prior candle\'s selling and reversed it.' };
+  }
+  if (c.close < c.open && p.close > p.open && c.open >= p.close && c.close <= p.open && body > pBody) {
+    return { bias: 'bearish', reading: 'Bearish engulfing candle — sellers absorbed the prior candle\'s buying and reversed it.' };
+  }
+  if (lowerWick > 2 * body && upperWick < body) {
+    return { bias: 'bullish', reading: 'Long lower wick (hammer-type candle) — sellers pushed price down and buyers slammed it back up.' };
+  }
+  if (upperWick > 2 * body && lowerWick < body) {
+    return { bias: 'bearish', reading: 'Long upper wick (shooting-star-type candle) — buyers pushed price up and sellers capped it.' };
+  }
+  if (body / range < 0.15) {
+    return { bias: 'neutral', reading: 'Doji-type candle — neither side won the last bar; the market is deciding.' };
+  }
+  return { bias: 'neutral', reading: `Ordinary ${c.close >= c.open ? 'green' : 'red'} candle — no strong single-bar signal.` };
+}
+
+// Condensed structural read of the higher timeframe: the backdrop every
+// lower-timeframe decision has to respect.
+function readHigherTimeframe(candles) {
+  const closes = candles.map((c) => c.close);
+  const n = candles.length - 1;
+  const price = closes[n];
+  const e20 = ema(closes, 20)[n], e50 = ema(closes, 50)[n], e200 = ema(closes, 200)[n];
+  const { highs, lows } = pivots(candles);
+  const h = highs.slice(-2), l = lows.slice(-2);
+  let trend = 'range';
+  if (h.length === 2 && l.length === 2) {
+    if (h[1].price > h[0].price && l[1].price > l[0].price) trend = 'uptrend';
+    else if (h[1].price < h[0].price && l[1].price < l[0].price) trend = 'downtrend';
+  }
+  const above200 = e200 != null ? price > e200 : null;
+  const stackBull = e20 != null && e50 != null && e20 > e50;
+  let bias = 'neutral';
+  if ((trend === 'uptrend' && above200 !== false) || (trend !== 'downtrend' && above200 === true && stackBull)) bias = 'bullish';
+  else if ((trend === 'downtrend' && above200 !== true) || (trend !== 'uptrend' && above200 === false && !stackBull)) bias = 'bearish';
+  const bits = [
+    trend === 'range' ? 'no clean trend structure' : `structure is a ${trend}`,
+    above200 == null ? 'not enough history for the 200-EMA' : `price is ${above200 ? 'above' : 'below'} the 200-EMA`,
+    `EMA20/50 stack is ${stackBull ? 'bullish' : 'bearish'}`,
+  ];
+  return { bias, trend, reading: `${bits.join(', ')}.` };
+}
+
 export function fmt(price) {
   if (!isFinite(price)) return '—';
   if (price >= 1000) return price.toLocaleString('en-US', { maximumFractionDigits: 0 });
@@ -356,12 +435,22 @@ export function fmt(price) {
 }
 
 // ---------------- the analysis ----------------
-export async function analyzeLive(symbolInput, interval, { minRR = 2 } = {}) {
+// deep=true also pulls the next-higher timeframe and folds it into the
+// verdict — the way a human analyst zooms out before deciding. Scans use
+// deep=false for speed; tapping a scan card runs the full deep analysis.
+export async function analyzeLive(symbolInput, interval, { minRR = 2, deep = true } = {}) {
   const instr = resolveInstrument(symbolInput);
   if (!instr) throw new Error('Enter a symbol — e.g. BTC, ETHUSDT, EURUSD, GBPJPY, GOLD.');
-  const { candles, source } = await fetchCandles(instr, interval);
-  const analysis = buildAnalysis(instr.display, interval, candles, { minRR });
-  analysis.source = source;
+  const htfInterval = HIGHER_TF[interval];
+  const [cur, htf] = await Promise.all([
+    fetchCandles(instr, interval),
+    deep && htfInterval ? fetchCandles(instr, htfInterval).catch(() => null) : Promise.resolve(null),
+  ]);
+  const analysis = buildAnalysis(instr.display, interval, cur.candles, {
+    minRR,
+    higher: htf ? { interval: htfInterval, candles: htf.candles } : null,
+  });
+  analysis.source = cur.source;
   analysis.as_of = Date.now();
   analysis.instrument = instr;
   return analysis;
@@ -399,7 +488,7 @@ export async function scanMarkets(interval, { includeFx = true, onProgress, minR
   let done = 0;
   const settled = await pool(targets, async (sym) => {
     try {
-      return await analyzeLive(sym, interval, { minRR });
+      return await analyzeLive(sym, interval, { minRR, deep: false });
     } catch {
       return null; // one dead market must not sink the scan
     } finally {
@@ -433,7 +522,9 @@ export async function scanMarkets(interval, { includeFx = true, onProgress, minR
 // minRR is the user's minimum risk-to-reward: 2 means only 1:2 or better
 // setups are allowed, 3 means 1:3+, and so on. R:R is always shown in the
 // trader-standard "1 : X" (risk : reward) notation.
-export function buildAnalysis(symbol, interval, candles, { minRR = 2 } = {}) {
+// higher (optional) = { interval, candles } for the next timeframe up; when
+// present it acts as both a scored factor and a hard directional filter.
+export function buildAnalysis(symbol, interval, candles, { minRR = 2, higher = null } = {}) {
   const closes = candles.map((c) => c.close);
   const vols = candles.map((c) => c.volume);
   const n = candles.length - 1;
@@ -524,13 +615,32 @@ export function buildAnalysis(symbol, interval, candles, { minRR = 2 } = {}) {
   add('Short-term momentum', `Last 3 candles net ${mom3 >= 0 ? '+' : ''}${fmt(mom3)} (${((mom3 / closes[n - 3]) * 100).toFixed(2)}%).`,
     Math.abs(mom3) < 0.3 * a ? 'neutral' : mom3 > 0 ? 'bullish' : 'bearish');
 
+  // ---- the analyst layer: zoom out, question momentum, read the tape ----
+  const htf = higher ? readHigherTimeframe(higher.candles) : null;
+  add(`Higher timeframe (${higher?.interval || HIGHER_TF[interval] || 'above'})`,
+    htf ? `On the ${higher.interval}: ${htf.reading}`
+      : 'Not checked in this quick pass — open the full analysis for the zoomed-out read.',
+    htf ? htf.bias : 'neutral', 2);
+
+  const div = findDivergence(rsi14, highs, lows);
+  add('Momentum divergence', div ? div.reading : 'No RSI divergence at the recent swings — momentum agrees with price.',
+    div ? div.bias : 'neutral');
+
+  const candleRead = readCandles(candles, n);
+  add('Candle read', candleRead ? candleRead.reading : 'Not enough candles for a pattern read.',
+    candleRead ? candleRead.bias : 'neutral');
+
   // ---- verdict ----
   const bullFactors = technicals.filter((t) => t.bias === 'bullish').length;
   const bearFactors = technicals.filter((t) => t.bias === 'bearish').length;
 
+  // The higher timeframe is a hard veto, not just a score entry: no longs
+  // into a bearish backdrop, no shorts into a bullish one.
   let verdict = 'HOLD';
-  if (score >= 3 && bullFactors >= 3 && structureTrend !== 'downtrend' && !nearResistance) verdict = 'BUY';
-  else if (score <= -3 && bearFactors >= 3 && structureTrend !== 'uptrend' && !nearSupport) verdict = 'SELL';
+  if (score >= 3 && bullFactors >= 3 && structureTrend !== 'downtrend' && !nearResistance
+    && (!htf || htf.bias !== 'bearish')) verdict = 'BUY';
+  else if (score <= -3 && bearFactors >= 3 && structureTrend !== 'uptrend' && !nearSupport
+    && (!htf || htf.bias !== 'bullish')) verdict = 'SELL';
 
   // ---- trade plan gated by the user's minimum risk-to-reward (1:minRR) ----
   let tradePlan = null;
@@ -666,10 +776,16 @@ export function buildAnalysis(symbol, interval, candles, { minRR = 2 } = {}) {
     }
   }
 
-  // confidence: scaled by |score|, capped at 80 (single-timeframe discipline)
+  // confidence: scaled by |score|; a confirmed higher-timeframe backdrop is
+  // the only thing that unlocks the top of the range, and an opposing
+  // divergence taxes it.
+  const dir = verdict === 'SELL' ? 'bearish' : 'bullish';
+  const htfAligned = htf && verdict !== 'HOLD' && htf.bias === dir;
+  const divAgainst = div && verdict !== 'HOLD' && div.bias !== dir && div.bias !== 'neutral';
   let confidence = verdict === 'HOLD'
     ? Math.min(50, 30 + Math.abs(score) * 4)
-    : Math.min(80, 45 + Math.abs(score) * 5 + (nearSupport || nearResistance ? 5 : 0));
+    : Math.min(htfAligned ? 88 : 78,
+      45 + Math.abs(score) * 4 + (nearSupport || nearResistance ? 5 : 0) + (htfAligned ? 8 : 0) - (divAgainst ? 8 : 0));
 
   const confluences = technicals
     .filter((t) => t.bias === (verdict === 'SELL' ? 'bearish' : 'bullish'))
@@ -689,13 +805,28 @@ export function buildAnalysis(symbol, interval, candles, { minRR = 2 } = {}) {
     ? (rrNote || `${symbol} on the ${interval} is ${structureTrend === 'range' ? 'ranging' : `in a ${structureTrend}`} with ${bullFactors} bullish vs ${bearFactors} bearish factors — not enough one-sided confluence to justify a position right now. The watch plan below shows exactly what would change that.`)
     : `${symbol} on the ${interval} shows ${bullFactors} bullish vs ${bearFactors} bearish factors in a ${structureTrend}, with price ${nearSupport ? 'at support' : nearResistance ? 'at resistance' : 'in play'} — a disciplined ${verdict.toLowerCase()} setup with defined risk.`;
 
-  const reasoning = [
-    `Score check: ${bullFactors} bullish, ${bearFactors} bearish, net ${score >= 0 ? '+' : ''}${score}. Structure says ${structureTrend}; the 200-EMA filter says ${ema200[n] == null ? 'insufficient history' : price > ema200[n] ? 'bulls control the big picture' : 'bears control the big picture'}.`,
-    verdict === 'BUY' ? `The long works because structure, trend filter, and momentum agree while price is ${nearSupport ? `sitting on a ${nearestSup.touches}-touch support zone at ${fmt(nearestSup.price)}` : 'not yet extended'}. The stop goes where the idea is wrong — beyond support — never at an arbitrary percentage.`
-      : verdict === 'SELL' ? `The short works because structure, trend filter, and momentum agree while price is ${nearResistance ? `pressing into a ${nearestRes.touches}-touch resistance zone at ${fmt(nearestRes.price)}` : 'not yet extended'}. The stop goes beyond resistance — where the idea is proven wrong.`
-        : `Standing aside is the professional call here: ${rrNote || 'the factors are split and price is not at a level where being wrong is cheap. Most charts, most of the time, are a HOLD.'} Set alerts at the trigger levels in the watch plan and let the market come to you.`,
-    'This is a single-timeframe read on live data. Confirm the bias on the higher timeframe before committing, and never risk more than 1–2% per trade.',
-  ].join('\n');
+  // ---- the desk's narrative: written the way an analyst thinks it ----
+  const forFactors = technicals.filter((t) => t.bias === dir).map((t) => t.factor);
+  const againstFactors = technicals.filter((t) => t.bias !== dir && t.bias !== 'neutral').map((t) => t.factor);
+  const paras = [];
+
+  paras.push(htf
+    ? `Zooming out first, because the bigger picture outranks everything below it: on the ${higher.interval}, ${htf.reading} That backdrop is ${htf.bias === 'neutral' ? 'mixed, so the ' + interval + ' has to earn the trade on its own' : htf.bias + ', and I won\'t fight it'}.`
+    : `Quick single-timeframe pass (the full analysis also checks the ${HIGHER_TF[interval] || 'higher'} timeframe before committing).`);
+
+  paras.push(`On the ${interval} itself: ${structureNote} ${bullFactors} of ${technicals.length} factors lean bullish (${forFactors.length ? (dir === 'bullish' ? forFactors : technicals.filter((t) => t.bias === 'bullish').map((t) => t.factor)).slice(0, 4).join(', ').toLowerCase() : 'none'}) against ${bearFactors} bearish. ${div ? `The detail I weight heavily here is the divergence: ${div.reading.toLowerCase()}` : 'Momentum confirms price at the recent swings — no divergence arguing against the move.'} ${candleRead && candleRead.bias !== 'neutral' ? `The last candle agrees: ${candleRead.reading.toLowerCase()}` : ''}`.trim());
+
+  if (verdict === 'BUY') {
+    paras.push(`Putting it together: structure, the trend filters${htfAligned ? `, the ${higher.interval} backdrop` : ''} and momentum point the same way while price is ${nearSupport ? `sitting on a ${nearestSup.touches}-touch support zone at ${fmt(nearestSup.price)} — a spot where being wrong is cheap` : 'not yet over-extended'}. That's why this is a buy and not a chase: the stop sits where the idea is provably wrong (beyond support), the target clears your 1:${minRR} minimum${againstFactors.length ? `, and I'm not ignoring the other side — ${againstFactors.slice(0, 2).join(' and ').toLowerCase()} argue against it, which is priced into the ${Math.round(confidence)}% confidence rather than hand-waved away` : ''}.`);
+  } else if (verdict === 'SELL') {
+    paras.push(`Putting it together: structure, the trend filters${htfAligned ? `, the ${higher.interval} backdrop` : ''} and momentum point down together while price is ${nearResistance ? `pressing into a ${nearestRes.touches}-touch resistance zone at ${fmt(nearestRes.price)} — a spot where being wrong is cheap` : 'not yet over-extended'}. The stop sits where the idea is provably wrong (beyond resistance), the target clears your 1:${minRR} minimum${againstFactors.length ? `, and the counter-case — ${againstFactors.slice(0, 2).join(' and ').toLowerCase()} — is priced into the ${Math.round(confidence)}% confidence, not ignored` : ''}.`);
+  } else {
+    paras.push(`My call is to stand aside, and here is the actual reason: ${rrNote || (htf && htf.bias !== 'neutral' && Math.abs(score) >= 3 ? `the ${interval} leans ${score > 0 ? 'bullish' : 'bearish'} but the ${higher.interval} backdrop is ${htf.bias} — taking that trade means fighting the bigger timeframe, which loses more often than it wins.` : 'the evidence is genuinely split, and price is not at a level where a wrong entry costs little. A trade taken here has no edge — it\'s a coin flip with fees.')} The watch plan above turns this into exact if-then instructions, so set alerts at those levels and let the market come to you.`);
+  }
+
+  paras.push(`What would change my mind: ${verdict === 'BUY' ? `a close below ${nearestSup ? fmt(nearestSup.price - 0.5 * a) : fmt(price - 2 * a)} kills the long thesis immediately` : verdict === 'SELL' ? `a close above ${nearestRes ? fmt(nearestRes.price + 0.5 * a) : fmt(price + 2 * a)} kills the short thesis immediately` : 'a decisive break of either level in the watch plan, on volume'} — and no analysis, mine included, is ever certain. Size at 1–2% risk so that being wrong is survivable, because sometimes I will be.`);
+
+  const reasoning = paras.join('\n');
 
   return {
     verdict,
@@ -719,7 +850,9 @@ export function buildAnalysis(symbol, interval, candles, { minRR = 2 } = {}) {
     confluences,
     risks,
     invalidation,
-    higher_timeframe_check: `Check the ${HIGHER_TF[interval] || 'higher'} timeframe: the ${verdict === 'SELL' ? 'downtrend' : 'uptrend'} thesis is stronger if structure and the 200-EMA agree there too.`,
+    higher_timeframe_check: htf
+      ? `Checked the ${higher.interval} automatically: ${htf.reading} Backdrop reads ${htf.bias}${verdict !== 'HOLD' ? (htfAligned ? ' — aligned with this trade.' : ' — not opposing this trade.') : '.'}`
+      : `Quick pass — open the full analysis (or re-run this symbol) and the desk will also read the ${HIGHER_TF[interval] || 'higher'} timeframe before committing.`,
     verdict_reasoning: reasoning,
     live_price: price,
   };
