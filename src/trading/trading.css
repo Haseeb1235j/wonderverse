@@ -51,39 +51,7 @@ body.signal-desk {
 }
 .desk-header p { color: var(--text-dim); font-size: 0.95rem; }
 
-/* Mode tabs */
-.mode-tabs {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 16px;
-}
-.mode-tab {
-  flex: 1;
-  padding: 12px 10px;
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  color: var(--text-dim);
-  font-size: 0.92rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: border-color 0.15s, color 0.15s;
-}
-.mode-tab:hover { border-color: var(--accent); }
-.mode-tab.active { color: var(--text); border-color: var(--accent); background: rgba(76, 194, 255, 0.07); }
-.free-badge, .adv-badge {
-  display: inline-block;
-  margin-left: 6px;
-  font-size: 0.62rem;
-  letter-spacing: 0.1em;
-  padding: 2px 8px;
-  border-radius: 999px;
-  vertical-align: middle;
-}
-.free-badge { background: rgba(34,197,94,0.15); color: var(--buy); border: 1px solid rgba(34,197,94,0.5); }
-.adv-badge { background: rgba(245,158,11,0.12); color: var(--hold); border: 1px solid rgba(245,158,11,0.4); }
-
-/* Live mode inputs */
+/* Market inputs */
 .live-row { display: flex; gap: 8px; flex-wrap: wrap; }
 .live-row input, .live-row select {
   background: var(--bg);
@@ -207,84 +175,6 @@ body.signal-desk {
   color: var(--text-dim);
   margin-bottom: 12px;
 }
-
-/* API key row */
-.key-row { display: flex; gap: 8px; flex-wrap: wrap; }
-.key-row input {
-  flex: 1;
-  min-width: 220px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  color: var(--text);
-  padding: 10px 12px;
-  font-family: var(--mono);
-  font-size: 0.85rem;
-}
-.key-row input:focus { outline: none; border-color: var(--accent); }
-.btn-ghost {
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--text-dim);
-  border-radius: 8px;
-  padding: 10px 14px;
-  cursor: pointer;
-  font-size: 0.85rem;
-}
-.btn-ghost:hover { border-color: var(--accent); color: var(--text); }
-.key-status { margin-top: 8px; font-size: 0.8rem; color: var(--text-dim); }
-.key-status.ok { color: var(--buy); }
-.key-help { margin-top: 6px; font-size: 0.78rem; color: var(--text-dim); }
-.key-help a { color: var(--accent); }
-
-/* Drop zone */
-.drop-zone {
-  border: 2px dashed var(--border);
-  border-radius: 12px;
-  padding: 34px 16px;
-  text-align: center;
-  cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
-  position: relative;
-}
-.drop-zone:hover, .drop-zone.dragging { border-color: var(--accent); background: rgba(76, 194, 255, 0.04); }
-.drop-zone .dz-icon { font-size: 2rem; display: block; margin-bottom: 8px; }
-.drop-zone .dz-hint { color: var(--text-dim); font-size: 0.85rem; margin-top: 4px; }
-.drop-zone.has-image { padding: 14px; }
-#preview { margin-top: 4px; }
-#preview img {
-  max-width: 100%;
-  max-height: 380px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-}
-#clear-image {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  background: rgba(0,0,0,0.65);
-  color: #fff;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  width: 30px;
-  height: 30px;
-  cursor: pointer;
-  font-size: 0.9rem;
-}
-
-/* Context */
-#context-input {
-  width: 100%;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  color: var(--text);
-  padding: 10px 12px;
-  font-size: 0.9rem;
-  min-height: 64px;
-  resize: vertical;
-}
-#context-input:focus { outline: none; border-color: var(--accent); }
 
 /* Analyze button */
 .analyze-btn {

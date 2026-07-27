@@ -11,100 +11,59 @@
       <a class="back-link" href="./">&larr; Back to WonderVerse</a>
 
       <header class="desk-header">
-        <div class="ticker-line">Veteran Desk · Deep Chart Analysis</div>
+        <div class="ticker-line">Self-Contained Trading Desk · Live Market Analysis</div>
         <h1>Signal Desk</h1>
-        <p>Get a disciplined BUY / SELL / HOLD verdict with entry, stop-loss, targets, and the full reasoning.</p>
+        <p>A disciplined BUY / SELL / HOLD verdict with entry, stop-loss, targets, and the desk's full reasoning. Runs entirely on its own — no account, no sign-up, nothing to install.</p>
       </header>
 
-      <div class="mode-tabs" role="tablist">
-        <button id="tab-live" class="mode-tab active" type="button" role="tab" aria-selected="true">⚡ Live Signal <span class="free-badge">FREE</span></button>
-        <button id="tab-ai" class="mode-tab" type="button" role="tab" aria-selected="false">🖼️ Screenshot AI <span class="adv-badge">needs API key</span></button>
-      </div>
+      <section class="panel">
+        <h2>1 · Pick a market &amp; timeframe</h2>
+        <div class="live-row">
+          <input id="symbol-input" list="symbol-list" placeholder="BTC, ETH, EURUSD, GBPJPY, GOLD…" autocomplete="off" spellcheck="false" value="BTC" />
+          <datalist id="symbol-list">
+            <option value="BTC">Bitcoin</option>
+            <option value="ETH">Ethereum</option>
+            <option value="SOL">Solana</option>
+            <option value="BNB">BNB</option>
+            <option value="XRP">XRP</option>
+            <option value="DOGE">Dogecoin</option>
+            <option value="ADA">Cardano</option>
+            <option value="AVAX">Avalanche</option>
+            <option value="LINK">Chainlink</option>
+            <option value="EURUSD">Euro / US Dollar</option>
+            <option value="GBPUSD">British Pound / US Dollar</option>
+            <option value="USDJPY">US Dollar / Japanese Yen</option>
+            <option value="GBPJPY">British Pound / Japanese Yen</option>
+            <option value="AUDUSD">Australian Dollar / US Dollar</option>
+            <option value="USDCAD">US Dollar / Canadian Dollar</option>
+            <option value="USDCHF">US Dollar / Swiss Franc</option>
+            <option value="NZDUSD">New Zealand Dollar / US Dollar</option>
+            <option value="XAUUSD">Gold / US Dollar</option>
+            <option value="XAGUSD">Silver / US Dollar</option>
+          </datalist>
+          <select id="tf-select" aria-label="Timeframe">
+            <option value="15m">15 min</option>
+            <option value="1h" selected>1 hour</option>
+            <option value="4h">4 hours</option>
+            <option value="1d">1 day</option>
+            <option value="1w">1 week</option>
+          </select>
+          <select id="rr-select" aria-label="Minimum risk to reward">
+            <option value="2" selected>Min R:R 1:2</option>
+            <option value="3">Min R:R 1:3</option>
+            <option value="4">Min R:R 1:4</option>
+          </select>
+        </div>
+        <div class="live-hint">Live data for <strong>any crypto pair, all major forex pairs, gold &amp; silver</strong>. Every signal must beat your chosen minimum risk-to-reward (1:2 = risk $1 to target $2); raise it to 1:3 or 1:4 for fewer, bigger setups.</div>
+      </section>
 
-      <!-- ============ LIVE MODE (free, no key) ============ -->
-      <div id="live-mode">
-        <section class="panel">
-          <h2>1 · Pick a market &amp; timeframe</h2>
-          <div class="live-row">
-            <input id="symbol-input" list="symbol-list" placeholder="BTC, ETH, EURUSD, GBPJPY, GOLD…" autocomplete="off" spellcheck="false" value="BTC" />
-            <datalist id="symbol-list">
-              <option value="BTC">Bitcoin</option>
-              <option value="ETH">Ethereum</option>
-              <option value="SOL">Solana</option>
-              <option value="BNB">BNB</option>
-              <option value="XRP">XRP</option>
-              <option value="DOGE">Dogecoin</option>
-              <option value="ADA">Cardano</option>
-              <option value="AVAX">Avalanche</option>
-              <option value="LINK">Chainlink</option>
-              <option value="EURUSD">Euro / US Dollar</option>
-              <option value="GBPUSD">British Pound / US Dollar</option>
-              <option value="USDJPY">US Dollar / Japanese Yen</option>
-              <option value="GBPJPY">British Pound / Japanese Yen</option>
-              <option value="AUDUSD">Australian Dollar / US Dollar</option>
-              <option value="USDCAD">US Dollar / Canadian Dollar</option>
-              <option value="USDCHF">US Dollar / Swiss Franc</option>
-              <option value="NZDUSD">New Zealand Dollar / US Dollar</option>
-              <option value="XAUUSD">Gold / US Dollar</option>
-              <option value="XAGUSD">Silver / US Dollar</option>
-            </datalist>
-            <select id="tf-select" aria-label="Timeframe">
-              <option value="15m">15 min</option>
-              <option value="1h" selected>1 hour</option>
-              <option value="4h">4 hours</option>
-              <option value="1d">1 day</option>
-              <option value="1w">1 week</option>
-            </select>
-            <select id="rr-select" aria-label="Minimum risk to reward">
-              <option value="2" selected>Min R:R 1:2</option>
-              <option value="3">Min R:R 1:3</option>
-              <option value="4">Min R:R 1:4</option>
-            </select>
-          </div>
-          <div class="live-hint">Live data for <strong>any crypto pair, all major forex pairs, gold &amp; silver</strong> — no account, no key, nothing to buy. Every signal must beat your chosen minimum risk-to-reward (1:2 = risk $1 to target $2); raise it to 1:3 or 1:4 for fewer, bigger setups.</div>
-        </section>
-
-        <section class="panel">
-          <h2>Or · Scan the whole market for ready trades</h2>
-          <button id="scan-btn" class="scan-btn" type="button">🔎 FIND READY TRADES</button>
-          <label class="scan-fx-row"><input type="checkbox" id="scan-fx" checked /> include forex &amp; gold (a bit slower)</label>
-          <div id="scan-status" class="scan-status" hidden></div>
-          <div id="scan-results" class="scan-results" hidden></div>
-        </section>
-      </div>
-
-      <!-- ============ AI MODE (screenshot, needs key) ============ -->
-      <div id="ai-mode" hidden>
-        <section class="panel">
-          <h2>Settings — Anthropic API Key</h2>
-          <div class="key-row">
-            <input id="api-key" type="password" placeholder="sk-ant-..." autocomplete="off" spellcheck="false" />
-            <button id="toggle-key" class="btn-ghost" type="button">Show</button>
-            <button id="save-key" class="btn-ghost" type="button">Save</button>
-          </div>
-          <div id="key-status" class="key-status"></div>
-          <div class="key-help">This advanced mode analyzes any chart screenshot (stocks, forex, crypto) with Claude AI. It needs a paid key from <a href="https://console.anthropic.com/" target="_blank" rel="noopener">console.anthropic.com</a> — if you don't want that, use the free Live Signal tab instead. The key stays in your browser only.</div>
-        </section>
-
-        <section class="panel">
-          <h2>1 · Chart Screenshot</h2>
-          <div id="drop-zone" class="drop-zone">
-            <input id="file-input" type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden />
-            <span class="dz-icon">🖼️</span>
-            <div>Click to upload, drag &amp; drop, or paste (Ctrl+V) your chart screenshot</div>
-            <div class="dz-hint">Best results: full chart with visible price scale, timeframe, and any indicators you use</div>
-            <div id="preview" hidden>
-              <img id="preview-img" alt="Chart preview" />
-              <button id="clear-image" type="button" title="Remove image">✕</button>
-            </div>
-          </div>
-        </section>
-
-        <section class="panel">
-          <h2>2 · Optional Context</h2>
-          <textarea id="context-input" placeholder="Anything the desk should know — asset name, timeframe, your bias, recent news, whether you're already in a position…"></textarea>
-        </section>
-      </div>
+      <section class="panel">
+        <h2>Or · Scan the whole market for ready trades</h2>
+        <button id="scan-btn" class="scan-btn" type="button">🔎 FIND READY TRADES</button>
+        <label class="scan-fx-row"><input type="checkbox" id="scan-fx" checked /> include forex &amp; gold (a bit slower)</label>
+        <div id="scan-status" class="scan-status" hidden></div>
+        <div id="scan-results" class="scan-results" hidden></div>
+      </section>
 
       <button id="analyze-btn" class="analyze-btn">ANALYZE — BUY / SELL / HOLD</button>
       <div id="status" class="status-line" hidden></div>
