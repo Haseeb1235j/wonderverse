@@ -1,27 +1,13 @@
-// Signal Desk — UI controller. Two modes:
-//  - Live Signal (default, free): live market data + rule-based TA engine.
-//  - Screenshot AI (advanced): Claude vision analysis, needs an API key.
+// Signal Desk — UI controller. The desk is fully self-contained: live
+// market data plus the local analysis engine, with no external service
+// in the loop.
 import { analyzeLive, fetchLivePrice, scanMarkets } from './engine.js';
 import './trading.css';
 
 const els = {
-  tabLive: document.getElementById('tab-live'),
-  tabAi: document.getElementById('tab-ai'),
-  liveMode: document.getElementById('live-mode'),
-  aiMode: document.getElementById('ai-mode'),
   symbolInput: document.getElementById('symbol-input'),
   tfSelect: document.getElementById('tf-select'),
   rrSelect: document.getElementById('rr-select'),
-  keyInput: document.getElementById('api-key'),
-  keySave: document.getElementById('save-key'),
-  keyStatus: document.getElementById('key-status'),
-  keyToggle: document.getElementById('toggle-key'),
-  dropZone: document.getElementById('drop-zone'),
-  fileInput: document.getElementById('file-input'),
-  preview: document.getElementById('preview'),
-  previewImg: document.getElementById('preview-img'),
-  clearImage: document.getElementById('clear-image'),
-  context: document.getElementById('context-input'),
   analyzeBtn: document.getElementById('analyze-btn'),
   status: document.getElementById('status'),
   error: document.getElementById('error'),
@@ -35,102 +21,11 @@ const els = {
   noticeSkip: document.getElementById('notice-skip'),
 };
 
-const KEY_STORAGE = 'signal-desk-api-key';
 const NOTICE_STORAGE = 'signal-desk-notice-dismissed';
-let mode = 'live';
-let image = null; // { base64, mediaType }
 let priceTimer = null; // live-price refresh loop for the current result
 
-// ---------------- mode tabs ----------------
-function setMode(next) {
-  mode = next;
-  const live = mode === 'live';
-  els.tabLive.classList.toggle('active', live);
-  els.tabAi.classList.toggle('active', !live);
-  els.tabLive.setAttribute('aria-selected', String(live));
-  els.tabAi.setAttribute('aria-selected', String(!live));
-  els.liveMode.hidden = !live;
-  els.aiMode.hidden = live;
-  clearError();
-  updateAnalyzeState();
-}
-els.tabLive.addEventListener('click', () => setMode('live'));
-els.tabAi.addEventListener('click', () => setMode('ai'));
-
-// ---------------- API key handling (AI mode) ----------------
-function loadKey() {
-  const key = localStorage.getItem(KEY_STORAGE) || '';
-  els.keyInput.value = key;
-  updateKeyStatus(key);
-}
-function updateKeyStatus(key) {
-  els.keyStatus.textContent = key ? 'Key saved on this device' : 'No key saved — this mode needs an Anthropic API key (the Live Signal tab is free)';
-  els.keyStatus.classList.toggle('ok', Boolean(key));
-}
-els.keySave.addEventListener('click', () => {
-  const key = els.keyInput.value.trim();
-  if (key) localStorage.setItem(KEY_STORAGE, key);
-  else localStorage.removeItem(KEY_STORAGE);
-  updateKeyStatus(key);
-});
-els.keyToggle.addEventListener('click', () => {
-  const hidden = els.keyInput.type === 'password';
-  els.keyInput.type = hidden ? 'text' : 'password';
-  els.keyToggle.textContent = hidden ? 'Hide' : 'Show';
-});
-
-// ---------------- Image intake (AI mode) ----------------
-const ACCEPTED = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
-
-function setImageFromFile(file) {
-  if (!file || !ACCEPTED.includes(file.type)) {
-    showError('Please use a PNG, JPEG, WEBP, or GIF screenshot.');
-    return;
-  }
-  if (file.size > 20 * 1024 * 1024) {
-    showError('Image is too large (max 20 MB). Take a tighter screenshot.');
-    return;
-  }
-  const reader = new FileReader();
-  reader.onload = () => {
-    const dataUrl = reader.result;
-    image = { base64: dataUrl.split(',')[1], mediaType: file.type };
-    els.previewImg.src = dataUrl;
-    els.preview.hidden = false;
-    els.dropZone.classList.add('has-image');
-    clearError();
-    updateAnalyzeState();
-  };
-  reader.readAsDataURL(file);
-}
-
-els.dropZone.addEventListener('click', () => els.fileInput.click());
-els.fileInput.addEventListener('change', () => setImageFromFile(els.fileInput.files[0]));
-
-['dragover', 'dragenter'].forEach((evt) =>
-  els.dropZone.addEventListener(evt, (e) => { e.preventDefault(); els.dropZone.classList.add('dragging'); }));
-['dragleave', 'drop'].forEach((evt) =>
-  els.dropZone.addEventListener(evt, (e) => { e.preventDefault(); els.dropZone.classList.remove('dragging'); }));
-els.dropZone.addEventListener('drop', (e) => setImageFromFile(e.dataTransfer.files[0]));
-
-document.addEventListener('paste', (e) => {
-  if (mode !== 'ai') return;
-  const item = [...(e.clipboardData?.items || [])].find((i) => i.type.startsWith('image/'));
-  if (item) setImageFromFile(item.getAsFile());
-});
-
-els.clearImage.addEventListener('click', (e) => {
-  e.stopPropagation();
-  image = null;
-  els.preview.hidden = true;
-  els.previewImg.src = '';
-  els.fileInput.value = '';
-  els.dropZone.classList.remove('has-image');
-  updateAnalyzeState();
-});
-
 function updateAnalyzeState() {
-  els.analyzeBtn.disabled = mode === 'ai' ? !image : !els.symbolInput.value.trim();
+  els.analyzeBtn.disabled = !els.symbolInput.value.trim();
 }
 els.symbolInput.addEventListener('input', updateAnalyzeState);
 els.symbolInput.addEventListener('keydown', (e) => {
@@ -160,34 +55,10 @@ els.analyzeBtn.addEventListener('click', async () => {
   els.analyzeBtn.classList.add('working');
 
   try {
-    let analysis;
-    if (mode === 'live') {
-      showStatus('Pulling live market data…');
-      analysis = await analyzeLive(els.symbolInput.value, els.tfSelect.value, { minRR: Number(els.rrSelect.value) || 2 });
-    } else {
-      const apiKey = els.keyInput.value.trim() || localStorage.getItem(KEY_STORAGE);
-      if (!apiKey) {
-        showError('This mode needs an Anthropic API key — or switch to the free Live Signal tab.');
-        return;
-      }
-      if (!image) return;
-      showStatus('Sending the chart to the desk…');
-      // Lazy-load the AI module so the free mode never pays its weight.
-      const { analyzeChart, describeError } = await import('./analyst.js');
-      try {
-        analysis = await analyzeChart({
-          apiKey,
-          imageBase64: image.base64,
-          mediaType: image.mediaType,
-          context: els.context.value,
-          onStatus: showStatus,
-        });
-      } catch (err) {
-        console.error(err);
-        showError(describeError(err));
-        return;
-      }
-    }
+    showStatus('Pulling live market data…');
+    const analysis = await analyzeLive(els.symbolInput.value, els.tfSelect.value, {
+      minRR: Number(els.rrSelect.value) || 2,
+    });
     renderResults(analysis);
     showNotice();
   } catch (err) {
@@ -485,7 +356,7 @@ function renderResults(a) {
   `;
   els.results.hidden = false;
   els.results.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  if (mode === 'live') startPriceLoop(a);
+  startPriceLoop(a);
 }
 
 // ---------------- Post-analysis notice ----------------
@@ -504,5 +375,4 @@ els.noticeSkip.addEventListener('click', () => closeNotice(true));
 els.notice.addEventListener('click', (e) => { if (e.target === els.notice) closeNotice(false); });
 
 // ---------------- Init ----------------
-loadKey();
-setMode('live');
+updateAnalyzeState();

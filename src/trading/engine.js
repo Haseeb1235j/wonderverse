@@ -1,8 +1,8 @@
-// Signal Desk — free technical-analysis engine (no API key required).
-// Fetches live OHLCV candles and runs a disciplined rule-based analysis:
-// trend structure, key levels, momentum, confluence scoring, and a
-// risk-managed trade plan. Produces the same result shape as the AI analyst
-// so the UI renderer is shared.
+// Signal Desk — self-contained technical-analysis engine. Everything the
+// desk knows lives in this file: it fetches live OHLCV candles and runs a
+// disciplined analysis — multi-timeframe context, trend structure, key
+// levels, momentum and divergence, candle reading, confluence scoring, and
+// a risk-managed trade plan. No external analysis service is involved.
 //
 // Markets covered:
 //  - Crypto  → Binance public market-data API (real-time, CORS enabled).
@@ -811,20 +811,20 @@ export function buildAnalysis(symbol, interval, candles, { minRR = 2, higher = n
   const paras = [];
 
   paras.push(htf
-    ? `Zooming out first, because the bigger picture outranks everything below it: on the ${higher.interval}, ${htf.reading} That backdrop is ${htf.bias === 'neutral' ? 'mixed, so the ' + interval + ' has to earn the trade on its own' : htf.bias + ', and I won\'t fight it'}.`
-    : `Quick single-timeframe pass (the full analysis also checks the ${HIGHER_TF[interval] || 'higher'} timeframe before committing).`);
+    ? `Step 1 — zoom out, because the bigger picture outranks everything below it. On the ${higher.interval}, ${htf.reading} That backdrop is ${htf.bias === 'neutral' ? `mixed, so the ${interval} has to earn the trade on its own` : `${htf.bias}, and the desk does not trade against it`}.`
+    : `Step 1 — quick single-timeframe pass. The full analysis also reads the ${HIGHER_TF[interval] || 'higher'} timeframe before committing.`);
 
-  paras.push(`On the ${interval} itself: ${structureNote} ${bullFactors} of ${technicals.length} factors lean bullish (${forFactors.length ? (dir === 'bullish' ? forFactors : technicals.filter((t) => t.bias === 'bullish').map((t) => t.factor)).slice(0, 4).join(', ').toLowerCase() : 'none'}) against ${bearFactors} bearish. ${div ? `The detail I weight heavily here is the divergence: ${div.reading.toLowerCase()}` : 'Momentum confirms price at the recent swings — no divergence arguing against the move.'} ${candleRead && candleRead.bias !== 'neutral' ? `The last candle agrees: ${candleRead.reading.toLowerCase()}` : ''}`.trim());
+  paras.push(`Step 2 — read the ${interval} itself. ${structureNote} ${bullFactors} of ${technicals.length} factors lean bullish (${forFactors.length ? (dir === 'bullish' ? forFactors : technicals.filter((t) => t.bias === 'bullish').map((t) => t.factor)).slice(0, 4).join(', ').toLowerCase() : 'none'}) against ${bearFactors} bearish. ${div ? `The heaviest detail here is the divergence: ${div.reading.toLowerCase()}` : 'Momentum confirms price at the recent swings — no divergence arguing against the move.'} ${candleRead && candleRead.bias !== 'neutral' ? `The last candle agrees: ${candleRead.reading.toLowerCase()}` : ''}`.trim());
 
   if (verdict === 'BUY') {
-    paras.push(`Putting it together: structure, the trend filters${htfAligned ? `, the ${higher.interval} backdrop` : ''} and momentum point the same way while price is ${nearSupport ? `sitting on a ${nearestSup.touches}-touch support zone at ${fmt(nearestSup.price)} — a spot where being wrong is cheap` : 'not yet over-extended'}. That's why this is a buy and not a chase: the stop sits where the idea is provably wrong (beyond support), the target clears your 1:${minRR} minimum${againstFactors.length ? `, and I'm not ignoring the other side — ${againstFactors.slice(0, 2).join(' and ').toLowerCase()} argue against it, which is priced into the ${Math.round(confidence)}% confidence rather than hand-waved away` : ''}.`);
+    paras.push(`Step 3 — the call. Structure, the trend filters${htfAligned ? `, the ${higher.interval} backdrop` : ''} and momentum point the same way while price is ${nearSupport ? `sitting on a ${nearestSup.touches}-touch support zone at ${fmt(nearestSup.price)} — a spot where being wrong is cheap` : 'not yet over-extended'}. That makes this a buy rather than a chase: the stop sits where the idea is provably wrong (beyond support) and the target clears the 1:${minRR} minimum${againstFactors.length ? `. The other side is not ignored — ${againstFactors.slice(0, 2).join(' and ').toLowerCase()} argue against it, and that is already priced into the ${Math.round(confidence)}% confidence` : ''}.`);
   } else if (verdict === 'SELL') {
-    paras.push(`Putting it together: structure, the trend filters${htfAligned ? `, the ${higher.interval} backdrop` : ''} and momentum point down together while price is ${nearResistance ? `pressing into a ${nearestRes.touches}-touch resistance zone at ${fmt(nearestRes.price)} — a spot where being wrong is cheap` : 'not yet over-extended'}. The stop sits where the idea is provably wrong (beyond resistance), the target clears your 1:${minRR} minimum${againstFactors.length ? `, and the counter-case — ${againstFactors.slice(0, 2).join(' and ').toLowerCase()} — is priced into the ${Math.round(confidence)}% confidence, not ignored` : ''}.`);
+    paras.push(`Step 3 — the call. Structure, the trend filters${htfAligned ? `, the ${higher.interval} backdrop` : ''} and momentum point down together while price is ${nearResistance ? `pressing into a ${nearestRes.touches}-touch resistance zone at ${fmt(nearestRes.price)} — a spot where being wrong is cheap` : 'not yet over-extended'}. The stop sits where the idea is provably wrong (beyond resistance) and the target clears the 1:${minRR} minimum${againstFactors.length ? `. The counter-case — ${againstFactors.slice(0, 2).join(' and ').toLowerCase()} — is priced into the ${Math.round(confidence)}% confidence, not ignored` : ''}.`);
   } else {
-    paras.push(`My call is to stand aside, and here is the actual reason: ${rrNote || (htf && htf.bias !== 'neutral' && Math.abs(score) >= 3 ? `the ${interval} leans ${score > 0 ? 'bullish' : 'bearish'} but the ${higher.interval} backdrop is ${htf.bias} — taking that trade means fighting the bigger timeframe, which loses more often than it wins.` : 'the evidence is genuinely split, and price is not at a level where a wrong entry costs little. A trade taken here has no edge — it\'s a coin flip with fees.')} The watch plan above turns this into exact if-then instructions, so set alerts at those levels and let the market come to you.`);
+    paras.push(`Step 3 — the call is to stand aside, and here is the actual reason: ${rrNote || (htf && htf.bias !== 'neutral' && Math.abs(score) >= 3 ? `the ${interval} leans ${score > 0 ? 'bullish' : 'bearish'} but the ${higher.interval} backdrop is ${htf.bias} — taking that trade means fighting the bigger timeframe, which loses more often than it wins.` : 'the evidence is genuinely split, and price is not at a level where a wrong entry costs little. A trade taken here has no edge — it is a coin flip with fees.')} The watch plan above turns this into exact if-then instructions, so set alerts at those levels and let the market come to you.`);
   }
 
-  paras.push(`What would change my mind: ${verdict === 'BUY' ? `a close below ${nearestSup ? fmt(nearestSup.price - 0.5 * a) : fmt(price - 2 * a)} kills the long thesis immediately` : verdict === 'SELL' ? `a close above ${nearestRes ? fmt(nearestRes.price + 0.5 * a) : fmt(price + 2 * a)} kills the short thesis immediately` : 'a decisive break of either level in the watch plan, on volume'} — and no analysis, mine included, is ever certain. Size at 1–2% risk so that being wrong is survivable, because sometimes I will be.`);
+  paras.push(`Step 4 — what would invalidate this: ${verdict === 'BUY' ? `a close below ${nearestSup ? fmt(nearestSup.price - 0.5 * a) : fmt(price - 2 * a)} kills the long thesis immediately` : verdict === 'SELL' ? `a close above ${nearestRes ? fmt(nearestRes.price + 0.5 * a) : fmt(price + 2 * a)} kills the short thesis immediately` : 'a decisive break of either level in the watch plan, on volume'}. No analysis is ever certain — this one included. Size at 1–2% risk so that being wrong stays survivable, because sometimes it will be wrong.`);
 
   const reasoning = paras.join('\n');
 
