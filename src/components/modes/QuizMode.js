@@ -1,3 +1,4 @@
+import { escapeHTML, icon } from "../../utils/icons.js";
 // QuizMode Component
 import { scoreQuiz } from "../../generators/quizGenerator.js";
 import { StorageService } from "../../services/storage.js";
@@ -17,29 +18,29 @@ const SoundFX = {
     try {
       initAudio();
       if (!audioCtx) return;
-      if (audioCtx.state === 'suspended') audioCtx.resume();
-      
+      if (audioCtx.state === "suspended") audioCtx.resume();
+
       const osc1 = audioCtx.createOscillator();
       const osc2 = audioCtx.createOscillator();
       const gainNode = audioCtx.createGain();
-      
+
       osc1.connect(gainNode);
       osc2.connect(gainNode);
       gainNode.connect(audioCtx.destination);
-      
+
       osc1.type = "sine";
       osc2.type = "triangle";
-      
+
       const now = audioCtx.currentTime;
       osc1.frequency.setValueAtTime(523.25, now); // C5
       osc1.frequency.setValueAtTime(659.25, now + 0.12); // E5
       osc1.frequency.setValueAtTime(783.99, now + 0.24); // G5
       osc2.frequency.setValueAtTime(261.63, now); // C4
       osc2.frequency.setValueAtTime(329.63, now + 0.12); // E4
-      
+
       gainNode.gain.setValueAtTime(0.15, now);
       gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
-      
+
       osc1.start(now);
       osc2.start(now);
       osc1.stop(now + 0.45);
@@ -53,29 +54,29 @@ const SoundFX = {
     try {
       initAudio();
       if (!audioCtx) return;
-      if (audioCtx.state === 'suspended') audioCtx.resume();
-      
+      if (audioCtx.state === "suspended") audioCtx.resume();
+
       const osc = audioCtx.createOscillator();
       const gainNode = audioCtx.createGain();
-      
+
       osc.connect(gainNode);
       gainNode.connect(audioCtx.destination);
-      
+
       osc.type = "sawtooth";
       const now = audioCtx.currentTime;
-      
+
       osc.frequency.setValueAtTime(120, now);
       osc.frequency.linearRampToValueAtTime(70, now + 0.3);
-      
+
       gainNode.gain.setValueAtTime(0.18, now);
       gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
-      
+
       osc.start(now);
       osc.stop(now + 0.35);
     } catch (err) {
       console.warn("Web Audio not supported or blocked", err);
     }
-  }
+  },
 };
 
 export const QuizMode = {
@@ -90,8 +91,11 @@ export const QuizMode = {
     this.currentQuestionIndex = 0;
     this.userAnswers = [];
 
+    if (!questions.length)
+      return '<div class="card"><h3>Not enough source text for a quiz</h3><p class="text-secondary">Read the original article for more information.</p></div>';
     return `
       <div id="quiz-workspace-inner" style="max-width: 650px; margin: 0 auto; padding-top: var(--space-2);">
+<p class="text-small text-secondary" style="margin-bottom:16px">Reading check: recall the wording of the source. This does not independently verify the article.</p>
         ${this.renderQuestionCard()}
       </div>
     `;
@@ -102,16 +106,20 @@ export const QuizMode = {
     const question = this.questions[qIndex];
     const percentage = Math.round((qIndex / this.questions.length) * 100);
 
-    const optionsHtml = question.options.map((option, idx) => `
+    const optionsHtml = question.options
+      .map(
+        (option, idx) => `
       <button 
         data-index="${idx}" 
         class="btn btn-secondary quiz-option-btn" 
         style="width: 100%; justify-content: flex-start; text-align: left; padding: var(--space-4); border-radius: var(--radius-lg); font-size: 0.95rem; font-weight: 500;"
       >
         <span style="font-weight: bold; margin-right: var(--space-3); color: var(--text-muted);">${String.fromCharCode(65 + idx)}.</span>
-        ${option}
+        ${escapeHTML(option)}
       </button>
-    `).join("");
+    `,
+      )
+      .join("");
 
     return `
       <div class="card reveal animate-fade-up" style="display: flex; flex-direction: column; gap: var(--space-5);">
@@ -125,7 +133,7 @@ export const QuizMode = {
         </div>
 
         <h3 class="text-h2" style="font-size: 1.25rem; margin: 0; line-height: 1.4;">
-          ${question.question}
+          ${escapeHTML(question.question)}
         </h3>
 
         <!-- Options Container -->
@@ -136,10 +144,10 @@ export const QuizMode = {
         <!-- Explanation Card (Initially hidden) -->
         <div id="quiz-explanation-mount" class="card" style="display: none; background: var(--bg-secondary); border-left: 4px solid var(--accent-cyan); padding: var(--space-4); margin-top: var(--space-2);">
           <h4 style="margin: 0 0 var(--space-2) 0; font-size: 0.95rem; color: var(--accent-cyan); font-weight: 700;">
-            Explanation Telemetry
+            Source excerpt
           </h4>
           <p style="margin: 0; font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;">
-            ${question.explanation}
+            ${escapeHTML(question.explanation)}
           </p>
         </div>
 
@@ -154,7 +162,7 @@ export const QuizMode = {
   },
 
   bindEvents() {
-    this.bindQuestionEvents();
+    if (this.questions.length) this.bindQuestionEvents();
   },
 
   bindQuestionEvents() {
@@ -164,7 +172,7 @@ export const QuizMode = {
     const correctIdx = this.questions[this.currentQuestionIndex].correctIndex;
     let answered = false;
 
-    options.forEach(btn => {
+    options.forEach((btn) => {
       btn.addEventListener("click", () => {
         if (answered) return;
         answered = true;
@@ -183,6 +191,7 @@ export const QuizMode = {
             opt.style.background = "rgba(244, 63, 94, 0.08)";
             opt.style.color = "#fb7185";
           }
+          opt.disabled = true;
           opt.style.cursor = "default";
         });
 
@@ -196,7 +205,8 @@ export const QuizMode = {
         // Show explanation and next btn
         if (explanation) explanation.style.display = "block";
         if (actionBtn) {
-          const isLast = this.currentQuestionIndex === this.questions.length - 1;
+          const isLast =
+            this.currentQuestionIndex === this.questions.length - 1;
           actionBtn.innerText = isLast ? "Finish Quiz" : "Next Question →";
           actionBtn.style.display = "inline-flex";
         }
@@ -206,7 +216,7 @@ export const QuizMode = {
     actionBtn?.addEventListener("click", () => {
       this.currentQuestionIndex++;
       const workspace = document.getElementById("quiz-workspace-inner");
-      
+
       if (this.currentQuestionIndex < this.questions.length) {
         if (workspace) {
           workspace.innerHTML = this.renderQuestionCard();
@@ -220,7 +230,7 @@ export const QuizMode = {
 
   renderSummary(container) {
     const quizStats = scoreQuiz(this.questions, this.userAnswers);
-    
+
     // Save to local storage
     StorageService.saveQuizScore(this.topicTitle, quizStats.score);
     StorageService.markChapterComplete(this.topicTitle);
@@ -229,32 +239,36 @@ export const QuizMode = {
     if (quizStats.percentage >= 80) progressColor = "var(--accent-emerald)";
     else if (quizStats.percentage >= 50) progressColor = "var(--accent-amber)";
 
-    const reviewHtml = quizStats.results.map((res, idx) => `
-      <div class="card" style="background: var(--bg-secondary); border-left: 4px solid ${res.isCorrect ? 'var(--accent-emerald)' : 'var(--accent-rose)'}; padding: var(--space-4); margin-bottom: var(--space-4);">
+    const reviewHtml = quizStats.results
+      .map(
+        (res, idx) => `
+      <div class="card" style="background: var(--bg-secondary); border-left: 4px solid ${res.isCorrect ? "var(--accent-emerald)" : "var(--accent-rose)"}; padding: var(--space-4); margin-bottom: var(--space-4);">
         <div style="display: flex; gap: var(--space-3); margin-bottom: var(--space-2); align-items: center;">
-          <span style="font-family: var(--font-mono); font-size: 0.8rem; background: ${res.isCorrect ? 'rgba(16,185,129,0.12)' : 'rgba(244,63,94,0.12)'}; color: ${res.isCorrect ? '#34d399' : '#fb7185'}; padding: 2px 8px; border-radius: 4px; font-weight: bold;">
-            ${res.isCorrect ? '✓ CORRECT' : '✗ INCORRECT'}
+          <span style="font-family: var(--font-mono); font-size: 0.8rem; background: ${res.isCorrect ? "rgba(16,185,129,0.12)" : "rgba(244,63,94,0.12)"}; color: ${res.isCorrect ? "#34d399" : "#fb7185"}; padding: 2px 8px; border-radius: 4px; font-weight: bold;">
+            ${res.isCorrect ? "✓ CORRECT" : "✗ INCORRECT"}
           </span>
-          <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: 600;">Question ${idx+1}</span>
+          <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: 600;">Question ${idx + 1}</span>
         </div>
-        <p style="font-size: 0.95rem; font-weight: 600; margin: 0 0 var(--space-2) 0; color: var(--text-primary);">${res.question}</p>
-        <p style="font-size: 0.85rem; color: var(--text-secondary); margin: 0 0 6px 0;">Your answer: <strong style="color: ${res.isCorrect ? '#34d399' : '#fb7185'};">${res.userAnswer || 'Skipped'}</strong></p>
-        <p style="font-size: 0.85rem; color: var(--text-secondary); margin: 0 0 var(--space-3) 0;">Correct answer: <strong style="color: #34d399;">${res.correctAnswer}</strong></p>
+        <p style="font-size: 0.95rem; font-weight: 600; margin: 0 0 var(--space-2) 0; color: var(--text-primary);">${escapeHTML(res.question)}</p>
+        <p style="font-size: 0.85rem; color: var(--text-secondary); margin: 0 0 6px 0;">Your answer: <strong style="color: ${res.isCorrect ? "#34d399" : "#fb7185"};">${escapeHTML(res.userAnswer || "Skipped")}</strong></p>
+        <p style="font-size: 0.85rem; color: var(--text-secondary); margin: 0 0 var(--space-3) 0;">Correct answer: <strong style="color: #34d399;">${escapeHTML(res.correctAnswer)}</strong></p>
         <div style="background: rgba(255,255,255,0.01); border: 1px solid var(--border-default); border-radius: var(--radius-sm); padding: 8px 12px; font-size: 0.8rem; color: var(--text-muted);">
-          <strong>Explanation:</strong> ${res.explanation}
+          <strong>Explanation:</strong> ${escapeHTML(res.explanation)}
         </div>
       </div>
-    `).join("");
+    `,
+      )
+      .join("");
 
     container.innerHTML = `
       <div class="card reveal animate-fade-up" style="display: flex; flex-direction: column; gap: var(--space-6);">
         <div class="text-center" style="padding: var(--space-6) 0;">
           <span style="font-size: 3rem; display: block; margin-bottom: var(--space-3); filter: drop-shadow(0 0 10px var(--accent-amber));">
-            ${quizStats.score === this.questions.length ? '👑' : '🎯'}
+            ${icon("award", 42)}
           </span>
-          <h2 class="text-h1" style="margin: 0; font-size: 1.75rem;">Quiz Concluded</h2>
+          <h2 class="text-h1" style="margin: 0; font-size: 1.75rem;">Reading check complete</h2>
           <p style="color: var(--text-secondary); margin-top: var(--space-2); margin-bottom: var(--space-6);">
-            Dynamic analysis telemetry review complete.
+            Review your answers alongside the original wording.
           </p>
 
           <div style="max-width: 250px; margin: 0 auto; display: flex; flex-direction: column; gap: var(--space-2); align-items: center;">
@@ -262,20 +276,20 @@ export const QuizMode = {
               ${quizStats.score} / ${quizStats.total}
             </span>
             <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 700;">
-              ${quizStats.percentage}% SCORE ACCURACY
+              ${quizStats.percentage}% CORRECT ANSWERS
             </span>
             ${ProgressBar.render(quizStats.percentage, progressColor)}
           </div>
         </div>
 
         <div>
-          <h3 class="text-h3" style="margin-bottom: var(--space-4); color: var(--text-secondary);">Telemetry Log Review</h3>
+          <h3 class="text-h3" style="margin-bottom: var(--space-4); color: var(--text-secondary);">Answer review</h3>
           ${reviewHtml}
         </div>
 
         <div style="display: flex; justify-content: center; gap: var(--space-4); margin-top: var(--space-4);">
           <button id="quiz-retry-btn" class="btn btn-primary">Retry Quiz</button>
-          <a href="#/" class="btn btn-secondary">Return Portal</a>
+          <a href="#/" class="btn btn-secondary">Back to explore</a>
         </div>
       </div>
     `;
@@ -286,9 +300,9 @@ export const QuizMode = {
     });
 
     if (quizStats.score === this.questions.length) {
-      Toast.show("Perfect score! 5/5 Telemetry Accuracy!", "success");
+      Toast.show(`All ${quizStats.total} answers correct.`, "success");
     }
-  }
+  },
 };
 
 export default QuizMode;

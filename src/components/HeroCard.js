@@ -1,134 +1,101 @@
-// HeroCard Component
 import { StorageService } from "../services/storage.js";
-import { getCategoryIcon, getCategoryLabel, getDifficultyLevel } from "../generators/categoryDetector.js";
+import {
+  getCategoryIcon,
+  getCategoryLabel,
+  getDifficultyLevel,
+} from "../generators/categoryDetector.js";
 import { VoiceService } from "../services/voice.js";
-
+import { Toast } from "./ui/Toast.js";
+import { icon, escapeHTML } from "../utils/icons.js";
 export const HeroCard = {
-  render(summaryData, category) {
-    const title = summaryData.title;
-    const extract = summaryData.extract || "No description available.";
-    const image = summaryData.thumbnail?.source || null;
-    const difficulty = getDifficultyLevel(extract);
-    
-    const isSaved = StorageService.isFavorite(title, "topics");
-    const categoryIcon = getCategoryIcon(category);
-    const categoryLabel = getCategoryLabel(category);
-    const wikiUrl = summaryData.content_urls?.desktop?.page || `https://en.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, '_'))}`;
-
-    const imageSection = image 
-      ? `<img src="${image}" alt="${title}" class="hero-image" style="width:100%; height:100%; object-fit:cover;" />` 
-      : `<div class="hero-image-placeholder" style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:3rem; background:var(--bg-elevated);">${categoryIcon}</div>`;
-
-    return `
-      <div class="hero-card card card-glow reveal animate-fade-up" style="display: grid; grid-template-columns: 200px 1fr; gap: var(--space-6); align-items: center; margin-bottom: var(--space-6);">
-        <div class="hero-image-wrapper" style="width: 200px; height: 200px; border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--border-default); position: relative; display: flex; justify-content: center; align-items: center;">
-          ${imageSection}
-        </div>
-        
-        <div class="hero-info" style="display: flex; flex-direction: column; justify-content: space-between; height: 100%;">
-          <div>
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-4); margin-bottom: var(--space-2);">
-              <div style="display: flex; flex-direction: column; gap: var(--space-2);">
-                <div style="display: flex; gap: var(--space-2); flex-wrap: wrap;">
-                  <span class="badge badge-${category}">${categoryIcon} ${categoryLabel}</span>
-                  <span class="badge badge-${difficulty}">${difficulty}</span>
-                </div>
-                <h1 class="text-h1" style="margin: 0; background: linear-gradient(135deg, #ffffff 0%, var(--text-accent) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
-                  ${title}
-                </h1>
-              </div>
-              
-              <button id="hero-save-btn" class="btn btn-secondary btn-sm" style="border-radius: var(--radius-full); font-weight:600;">
-                ${isSaved ? "★ Saved" : "☆ Save Topic"}
-              </button>
-            </div>
-            
-            <p class="text-body text-secondary" style="margin-top: var(--space-2); margin-bottom: var(--space-4); line-height: 1.6;">
-              ${extract}
-            </p>
-          </div>
-          
-          <div style="display: flex; gap: var(--space-3); flex-wrap: wrap;">
-            <a href="${wikiUrl}" target="_blank" class="btn btn-ghost btn-sm">
-              Wikipedia ↗
-            </a>
-            <button id="hero-speak-btn" class="btn btn-ghost btn-sm">
-              🔊 Listen
-            </button>
-            <button id="hero-share-btn" class="btn btn-ghost btn-sm">
-              🔗 Share
-            </button>
-            <button id="hero-copy-btn" class="btn btn-ghost btn-sm">
-              📋 Copy Link
-            </button>
-          </div>
-        </div>
-      </div>
-    `;
+  render(data, category) {
+    const title = escapeHTML(data.title),
+      image = data.thumbnail?.source;
+    const saved = StorageService.isFavorite(data.title, "topics");
+    const wikiURL =
+      data.content_urls?.desktop?.page ||
+      `https://en.wikipedia.org/wiki/${encodeURIComponent(data.title.replace(/ /g, "_"))}`;
+    return `<section class="topic-hero"><div class="hero-image-wrapper">${image ? `<img class="hero-image" src="${escapeHTML(image)}" alt="${title}" />` : `<div class="hero-image-placeholder">${getCategoryIcon(category)}</div>`}</div>
+      <div class="hero-info"><div class="hero-metadata"><span class="badge">${getCategoryIcon(category)} ${getCategoryLabel(category)}</span><span class="badge badge-${getDifficultyLevel(data.extract || "")}">${getDifficultyLevel(data.extract || "")}</span></div>
+        <div class="hero-title-row"><h1>${title}</h1><button id="hero-save-btn" class="btn btn-secondary btn-sm" aria-pressed="${saved}">${icon(saved ? "check" : "bookmark", 16)} ${saved ? "Saved" : "Save"}</button></div>
+        <p>${escapeHTML(data.extract || "No description available.")}</p><div class="hero-actions"><a href="${escapeHTML(wikiURL)}" target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sm">Wikipedia ${icon("external", 14)}</a>
+          <button id="hero-speak-btn" class="btn btn-ghost btn-sm">${icon("volume", 16)} Listen</button><button id="hero-share-btn" class="btn btn-ghost btn-sm">${icon("share", 16)} Share</button><button id="hero-copy-btn" class="btn btn-ghost btn-sm">${icon("copy", 16)} Copy link</button></div></div></section>`;
   },
-
-  bindEvents(summaryData) {
-    const title = summaryData.title;
-    
-    // Save/Unsave
-    const saveBtn = document.getElementById("hero-save-btn");
-    saveBtn?.addEventListener("click", () => {
+  bindEvents(data) {
+    const title = data.title,
+      save = document.getElementById("hero-save-btn");
+    save?.addEventListener("click", () => {
       const added = StorageService.toggleFavorite(title, "topics");
-      saveBtn.innerText = added ? "★ Saved" : "☆ Save Topic";
-      
-      // Dispatch favorite state change
-      window.dispatchEvent(new CustomEvent("favorite-toggled", { detail: { title, added } }));
+      save.innerHTML = `${icon(added ? "check" : "bookmark", 16)} ${added ? "Saved" : "Save"}`;
+      save.setAttribute("aria-pressed", String(added));
+      window.dispatchEvent(
+        new CustomEvent("favorite-toggled", { detail: { title, added } }),
+      );
     });
-
-    // Share button
-    const shareBtn = document.getElementById("hero-share-btn");
-    shareBtn?.addEventListener("click", () => {
-      if (navigator.share) {
-        navigator.share({
-          title: `WonderVerse Learning Journey: ${title}`,
-          text: `Explore ${title} visually on WonderVerse!`,
-          url: window.location.href,
-        }).catch(err => console.log(err));
-      } else {
-        navigator.clipboard.writeText(window.location.href);
-        alert("Link copied to clipboard!");
+    const copy = document.getElementById("hero-copy-btn");
+    const copyLink = async () => {
+      try {
+        await navigator.clipboard.writeText(window.location.href);
+        copy.innerHTML = `${icon("check", 16)} Copied`;
+        setTimeout(() => {
+          if (copy.isConnected)
+            copy.innerHTML = `${icon("copy", 16)} Copy link`;
+        }, 2000);
+        return true;
+      } catch {
+        Toast.show(
+          "Could not copy the link. You can copy the address from your browser.",
+          "error",
+        );
+        return false;
       }
-    });
-
-    // Copy Link button
-    const copyBtn = document.getElementById("hero-copy-btn");
-    copyBtn?.addEventListener("click", () => {
-      navigator.clipboard.writeText(window.location.href);
-      copyBtn.innerText = "✓ Copied!";
-      setTimeout(() => {
-        copyBtn.innerText = "📋 Copy Link";
-      }, 2000);
-    });
-
-    // Speak / Listen button
-    const speakBtn = document.getElementById("hero-speak-btn");
-    speakBtn?.addEventListener("click", () => {
+    };
+    copy?.addEventListener("click", copyLink);
+    document
+      .getElementById("hero-share-btn")
+      ?.addEventListener("click", async () => {
+        if (!navigator.share) {
+          if (await copyLink())
+            Toast.show("Link copied. Share it wherever you like.", "info");
+          return;
+        }
+        try {
+          await navigator.share({
+            title: `${title} — WonderVerse`,
+            text: `Explore ${title} on WonderVerse`,
+            url: window.location.href,
+          });
+        } catch (error) {
+          if (error.name !== "AbortError")
+            Toast.show(
+              "Sharing is unavailable in this browser. Try Copy link.",
+              "error",
+            );
+        }
+      });
+    const speak = document.getElementById("hero-speak-btn");
+    const showListen = () => {
+      speak.innerHTML = `${icon("volume", 16)} Listen`;
+    };
+    speak?.addEventListener("click", () => {
       if (VoiceService.isPlaying()) {
         VoiceService.stop();
-        speakBtn.innerHTML = "🔊 Listen";
-      } else {
-        speakBtn.innerHTML = "⏹️ Stop";
-        VoiceService.speak(
-          summaryData.extract,
-          () => {
-            speakBtn.innerHTML = "⏹️ Stop";
-          },
-          () => {
-            speakBtn.innerHTML = "🔊 Listen";
-          },
-          (err) => {
-            console.error("Hero voice error", err);
-            speakBtn.innerHTML = "🔊 Listen";
-          }
-        );
+        showListen();
+        return;
       }
+      speak.innerHTML = `${icon("stop", 16)} Stop`;
+      VoiceService.speak(
+        data.extract,
+        () => {
+          speak.innerHTML = `${icon("stop", 16)} Stop`;
+        },
+        showListen,
+        () => {
+          showListen();
+          Toast.show("Narration is unavailable in this browser.", "info");
+        },
+      );
     });
-  }
+  },
 };
-
 export default HeroCard;

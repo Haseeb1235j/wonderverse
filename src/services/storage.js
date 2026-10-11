@@ -8,22 +8,22 @@ const STORAGE_KEYS = {
   STREAK: "wonderverse_streak",
   LEARNING_TIME: "wonderverse_learning_time",
   HISTORY: "wonderverse_history",
-  THEME: "wonderverse_theme"
+  THEME: "wonderverse_theme",
 };
 
 const defaultProgress = {
   continueReading: null, // { topicId, mode, timestamp }
-  completedChapters: [] // Array of topic titles
+  completedChapters: [], // Array of topic titles
 };
 
 const defaultFavorites = {
   topics: [], // Array of topic titles
-  diagrams: [] // Array of diagram/topic names
+  diagrams: [], // Array of diagram/topic names
 };
 
 const defaultStreak = {
   currentStreak: 0,
-  lastReadDate: null // YYYY-MM-DD
+  lastReadDate: null, // YYYY-MM-DD
 };
 
 function getJSON(key, defaultValue) {
@@ -47,11 +47,21 @@ function setJSON(key, value) {
 export const StorageService = {
   // Theme
   getTheme() {
-    return localStorage.getItem(STORAGE_KEYS.THEME) || "dark";
+    try {
+      return localStorage.getItem(STORAGE_KEYS.THEME) === "light"
+        ? "light"
+        : "dark";
+    } catch {
+      return "dark";
+    }
   },
-  
+
   setTheme(theme) {
-    localStorage.setItem(STORAGE_KEYS.THEME, theme);
+    try {
+      localStorage.setItem(STORAGE_KEYS.THEME, theme);
+    } catch {
+      /* Keep the current appearance when browser storage is unavailable. */
+    }
   },
 
   // Reading Progress
@@ -121,7 +131,7 @@ export const StorageService = {
   updateReadingStreak() {
     const streak = this.getStreak();
     const today = new Date().toISOString().split("T")[0];
-    
+
     if (streak.lastReadDate === today) {
       return; // Already updated today
     }
@@ -140,11 +150,11 @@ export const StorageService = {
         streak.currentStreak = 1; // reset streak if gap is more than 1 day
       }
     }
-    
+
     streak.lastReadDate = today;
     setJSON(STORAGE_KEYS.STREAK, streak);
     this.checkAndUnlockBadges();
-    
+
     // Dispatch event for components to listen to
     window.dispatchEvent(new CustomEvent("streak-updated", { detail: streak }));
   },
@@ -159,7 +169,9 @@ export const StorageService = {
     time += minutes;
     setJSON(STORAGE_KEYS.LEARNING_TIME, time);
     this.checkAndUnlockBadges();
-    window.dispatchEvent(new CustomEvent("learning-time-updated", { detail: time }));
+    window.dispatchEvent(
+      new CustomEvent("learning-time-updated", { detail: time }),
+    );
   },
 
   // Badges
@@ -185,12 +197,20 @@ export const StorageService = {
     };
 
     // 1. Space Rookie (Completed a space topic or got quiz score in it)
-    if (progress.completedChapters.includes("Black Hole") || progress.completedChapters.includes("Moon") || progress.completedChapters.includes("Quantum Physics")) {
+    if (
+      progress.completedChapters.includes("Black Hole") ||
+      progress.completedChapters.includes("Moon") ||
+      progress.completedChapters.includes("Quantum Physics")
+    ) {
       tryUnlock("space-rookie");
     }
 
     // 2. Science Explorer (Finished Biology, Science or Physics topics)
-    if (progress.completedChapters.includes("Human Heart") || progress.completedChapters.includes("DNA") || progress.completedChapters.includes("Photosynthesis")) {
+    if (
+      progress.completedChapters.includes("Human Heart") ||
+      progress.completedChapters.includes("DNA") ||
+      progress.completedChapters.includes("Photosynthesis")
+    ) {
       tryUnlock("science-explorer");
     }
 
@@ -205,7 +225,7 @@ export const StorageService = {
     }
 
     // 5. Quiz Warrior (Got 5/5 score on any quiz)
-    const hasPerfectScore = Object.values(scores).some(score => score === 5);
+    const hasPerfectScore = Object.values(scores).some((score) => score === 5);
     if (hasPerfectScore) {
       tryUnlock("quiz-warrior");
     }
@@ -216,14 +236,18 @@ export const StorageService = {
     }
 
     // 7. Knowledge Collector (Unlocked 6 badges or saved 3 topics)
-    if (badges.length >= 6 || (favs.topics?.length) >= 3) {
+    if (badges.length >= 6 || favs.topics?.length >= 3) {
       tryUnlock("knowledge-collector");
     }
 
     if (newlyUnlocked.length > 0) {
       setJSON(STORAGE_KEYS.BADGES, badges);
       // Fire visual event
-      window.dispatchEvent(new CustomEvent("badge-unlocked", { detail: { badges: newlyUnlocked } }));
+      window.dispatchEvent(
+        new CustomEvent("badge-unlocked", {
+          detail: { badges: newlyUnlocked },
+        }),
+      );
     }
   },
 
@@ -235,7 +259,9 @@ export const StorageService = {
   addRecentSearch(topic) {
     // topic = { title, query, category, image, date }
     const history = this.getRecentSearches();
-    const index = history.findIndex(h => h.title.toLowerCase() === topic.title.toLowerCase());
+    const index = history.findIndex(
+      (h) => h.title.toLowerCase() === topic.title.toLowerCase(),
+    );
     if (index > -1) {
       history.splice(index, 1);
     }
@@ -244,12 +270,14 @@ export const StorageService = {
       query: topic.query || topic.title,
       category: topic.category || "universal",
       image: topic.image || null,
-      date: new Date().toLocaleDateString()
+      date: new Date().toLocaleDateString(),
     });
     if (history.length > 10) {
       history.pop();
     }
     setJSON(STORAGE_KEYS.HISTORY, history);
-    window.dispatchEvent(new CustomEvent("history-updated", { detail: history }));
-  }
+    window.dispatchEvent(
+      new CustomEvent("history-updated", { detail: history }),
+    );
+  },
 };

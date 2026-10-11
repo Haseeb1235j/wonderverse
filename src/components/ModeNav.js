@@ -1,52 +1,46 @@
-// ModeNav Component — Tab navigation for topic page
-
+import { icon } from "../utils/icons.js";
+const modes = [
+  { id: "story", label: "Story", icon: "book" },
+  { id: "learn", label: "Explain", icon: "learn" },
+  { id: "diagram", label: "Diagram", icon: "diagram" },
+  { id: "quiz", label: "Quiz", icon: "quiz" },
+  { id: "explore", label: "Explore", icon: "explore" },
+];
 export const ModeNav = {
   render(activeMode = "story") {
-    const modes = [
-      { id: "story", label: "Story Mode", icon: "📚" },
-      { id: "learn", label: "Learn Mode", icon: "🧠" },
-      { id: "diagram", label: "Diagram Mode", icon: "📊" },
-      { id: "quiz", label: "Quiz Mode", icon: "🎯" },
-      { id: "explore", label: "Explore Mode", icon: "🧭" }
-    ];
-
-    return `
-      <div class="mode-navigation-bar" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-default); padding-bottom: var(--space-4); margin-bottom: var(--space-6); flex-wrap: wrap; gap: var(--space-4);">
-        <h2 class="text-tiny text-muted" style="text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700; margin: 0;">Mode Telemetry</h2>
-        <div class="mode-switches-container" style="display: flex; gap: 4px; background: var(--bg-secondary); border: 1px solid var(--border-default); border-radius: var(--radius-full); padding: 4px; overflow-x: auto; max-width: 100%;">
-          ${modes.map(mode => `
-            <button 
-              data-mode="${mode.id}" 
-              class="btn btn-sm ${activeMode === mode.id ? 'btn-primary' : 'btn-ghost'}"
-              style="border-radius: var(--radius-full); white-space: nowrap;"
-            >
-              <span style="margin-right: 4px;">${mode.icon}</span>${mode.label}
-            </button>
-          `).join('')}
-        </div>
-      </div>
-    `;
+    return `<div class="mode-navigation-bar"><div class="mode-switches-container" role="tablist" aria-label="Ways to explore this topic">${modes.map((mode) => `<button type="button" id="mode-${mode.id}" data-mode="${mode.id}" role="tab" aria-selected="${activeMode === mode.id}" aria-controls="topic-workspace" tabindex="${activeMode === mode.id ? "0" : "-1"}" class="mode-tab ${activeMode === mode.id ? "active" : ""}">${icon(mode.icon, 18)}<span>${mode.label}</span></button>`).join("")}</div></div>`;
   },
-
+  select(mode) {
+    document.querySelectorAll(".mode-tab").forEach((button) => {
+      const active = button.dataset.mode === mode;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-selected", String(active));
+      button.tabIndex = active ? 0 : -1;
+    });
+    document
+      .getElementById("topic-workspace")
+      ?.setAttribute("aria-labelledby", `mode-${mode}`);
+  },
   bindEvents(onModeChange) {
-    document.querySelectorAll(".mode-switches-container button").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const selectedMode = btn.getAttribute("data-mode");
-        
-        // Update visual active state immediately
-        document.querySelectorAll(".mode-switches-container button").forEach(b => {
-          b.classList.remove("btn-primary");
-          b.classList.add("btn-ghost");
-        });
-        btn.classList.add("btn-primary");
-        btn.classList.remove("btn-ghost");
-
-        if (onModeChange) {
-          onModeChange(selectedMode);
-        }
+    const buttons = [...document.querySelectorAll(".mode-tab")];
+    buttons.forEach((button, index) => {
+      button.addEventListener("click", () => {
+        this.select(button.dataset.mode);
+        onModeChange?.(button.dataset.mode);
+      });
+      button.addEventListener("keydown", (event) => {
+        let next;
+        if (event.key === "ArrowRight") next = (index + 1) % buttons.length;
+        if (event.key === "ArrowLeft")
+          next = (index + buttons.length - 1) % buttons.length;
+        if (event.key === "Home") next = 0;
+        if (event.key === "End") next = buttons.length - 1;
+        if (next === undefined) return;
+        event.preventDefault();
+        buttons[next].focus();
+        buttons[next].click();
       });
     });
-  }
+  },
 };
-
 export default ModeNav;

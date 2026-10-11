@@ -1,48 +1,47 @@
-// Header Component
 import { SearchBar } from "./SearchBar.js";
 import { store } from "../store.js";
 import { Router } from "../router.js";
-
+import { icon } from "../utils/icons.js";
 export const Header = {
   render() {
     const state = store.getState();
-    const streak = state.streak?.currentStreak || 0;
-    
-    return `
-      <div style="width: 420px; max-width: 100%;">
-        ${SearchBar.render("Search any topic...", "header-search")}
-      </div>
-      <div style="display: flex; align-items: center; gap: 20px;">
-        <button id="theme-toggle-btn" class="btn btn-ghost btn-icon" style="font-size: 1.1rem; padding: 6px;" title="Toggle Light/Dark Mode">
-          ${state.theme === 'dark' ? '☀️' : '🌙'}
-        </button>
-        <div style="font-size: 13px; font-weight: 700; color: var(--accent-cyan);" id="header-streak-badge">
-          🔥 STREAK: ${streak} DAYS
-        </div>
-      </div>
-    `;
+    return `<a class="mobile-wordmark" href="#/landing" aria-label="WonderVerse home">w.</a><span class="header-title" id="header-page-title">Explore</span>
+      <div class="header-search">${SearchBar.render("Search WonderVerse", "header-search")}</div>
+      <button id="theme-toggle-btn" class="btn btn-ghost btn-icon" aria-label="Switch to ${state.theme === "dark" ? "light" : "dark"} mode" title="Switch appearance">${icon(state.theme === "dark" ? "sun" : "moon")}</button>`;
   },
-
   bindEvents() {
-    SearchBar.bindEvents("header-search", (query) => {
-      Router.navigate(`search?q=${encodeURIComponent(query)}`);
-    });
-
-    const themeBtn = document.getElementById("theme-toggle-btn");
-    themeBtn?.addEventListener("click", () => {
-      store.toggleTheme();
-      // Update header render immediately to switch icon
-      this.updateHeader();
-    });
+    SearchBar.bindEvents("header-search", (query) =>
+      Router.navigate(`search?q=${encodeURIComponent(query)}`),
+    );
+    document
+      .getElementById("theme-toggle-btn")
+      ?.addEventListener("click", () => {
+        store.toggleTheme();
+        this.updateHeader();
+        document.getElementById("theme-toggle-btn")?.focus();
+      });
   },
-
   updateHeader() {
-    const headerEl = document.querySelector("header.top-header");
-    if (headerEl) {
-      headerEl.innerHTML = this.render();
-      this.bindEvents();
-    }
-  }
+    const element = document.querySelector("header.top-header");
+    if (!element) return;
+    element.innerHTML = this.render();
+    this.bindEvents();
+    this.updateTitle(Router.parseRoute().route);
+  },
+  updateTitle(route) {
+    const title = document.getElementById("header-page-title");
+    if (title)
+      title.textContent =
+        {
+          "/": "Explore",
+          "/search": "Search",
+          "/topic": "Discover",
+          "/saved": "Saved",
+          "/diagrams": "Diagrams",
+          "/dashboard": "Progress",
+          "/badges": "Achievements",
+          "/about": "About",
+        }[route] || "WonderVerse";
+  },
 };
-
 export default Header;

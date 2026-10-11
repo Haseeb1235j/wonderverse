@@ -1,5 +1,5 @@
 // WonderVerse App Bootstrap & Entry Point
-import './styles/main.css';
+import "./styles/main.css";
 import { Router } from "./router.js";
 import { store } from "./store.js";
 import { StorageService } from "./services/storage.js";
@@ -13,7 +13,8 @@ const App = {
 
     // 2. Bootstrap router (handles page rendering based on path)
     Router.init(({ route, params }) => {
-      console.log(`Navigation routing to: ${route}`, params);
+      Header.updateTitle(route);
+      this.closeMobileMenu();
     });
 
     // 3. Update reading streak
@@ -29,9 +30,32 @@ const App = {
   },
 
   setupListeners() {
-    // Logo click redirect
-    document.getElementById("sidebar-logo")?.addEventListener("click", () => {
-      Router.navigate("");
+    document.querySelector(".skip-link")?.addEventListener("click", (event) => {
+      event.preventDefault();
+      document.getElementById("app")?.focus();
+    });
+    const moreButton = document.getElementById("mobile-more-btn");
+    const moreMenu = document.getElementById("mobile-more-menu");
+    moreButton?.addEventListener("click", () => {
+      const open = moreMenu.hidden;
+      moreMenu.hidden = !open;
+      moreButton.setAttribute("aria-expanded", String(open));
+    });
+    document.addEventListener("click", (event) => {
+      if (
+        !moreMenu?.contains(event.target) &&
+        !moreButton?.contains(event.target)
+      )
+        this.closeMobileMenu();
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && moreMenu && !moreMenu.hidden) {
+        this.closeMobileMenu();
+        moreButton?.focus();
+      }
+    });
+    window.addEventListener("resize", () => {
+      if (window.innerWidth > 600) this.closeMobileMenu();
     });
 
     // Handle badge unlocks
@@ -47,10 +71,18 @@ const App = {
     store.subscribe("stateChange", ({ current }) => {
       const streakEl = document.getElementById("header-streak-badge");
       if (streakEl && current.streak) {
-        streakEl.innerText = `🔥 STREAK: ${current.streak.currentStreak} DAYS`;
+        streakEl.innerText = `${current.streak.currentStreak} day streak`;
       }
     });
-  }
+  },
+};
+
+App.closeMobileMenu = () => {
+  const menu = document.getElementById("mobile-more-menu");
+  if (menu) menu.hidden = true;
+  document
+    .getElementById("mobile-more-btn")
+    ?.setAttribute("aria-expanded", "false");
 };
 
 // Start application

@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node --test",
+    "search:init": "node --env-file-if-exists=server/.env server/index.js --init-usage",
+    "search:dev": "node --env-file-if-exists=server/.env server/index.js"
   },
   "devDependencies": {
     "vite": "^8.0.12"
